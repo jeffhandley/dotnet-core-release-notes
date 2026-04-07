@@ -50,29 +50,6 @@ on:
         type: string
 
   steps:
-    - name: Setup .NET for tool install
-      uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5.2.0
-      with:
-        dotnet-version: '10.0'
-
-    - name: Install release-notes-gen tool
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        dotnet nuget add source https://nuget.pkg.github.com/richlander/index.json \
-          --name github-richlander \
-          --username github-actions \
-          --password "$GITHUB_TOKEN" \
-          --store-password-in-clear-text
-        dotnet tool install ReleaseNotes.Gen \
-          --tool-path "$RUNNER_TEMP/release-notes-gen-tool"
-
-    - name: Upload release-notes-gen tool
-      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
-      with:
-        name: release-notes-gen-tool
-        path: ${{ runner.temp }}/release-notes-gen-tool
-
     # ###############################################################
     # Override the COPILOT_GITHUB_TOKEN secret usage for the workflow
     # with a randomly-selected token from a pool of secrets.
@@ -107,6 +84,34 @@ on:
 
 # Add the pre-activation output of the randomly selected PAT
 jobs:
+  install-tool:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    steps:
+      - name: Setup .NET for tool install
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5.2.0
+        with:
+          dotnet-version: '10.0'
+
+      - name: Install release-notes-gen tool
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          dotnet nuget add source https://nuget.pkg.github.com/richlander/index.json \
+            --name github-richlander \
+            --username github-actions \
+            --password "$GITHUB_TOKEN" \
+            --store-password-in-clear-text
+          dotnet tool install ReleaseNotes.Gen \
+            --tool-path "$RUNNER_TEMP/release-notes-gen-tool"
+
+      - name: Upload release-notes-gen tool
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        with:
+          name: release-notes-gen-tool
+          path: ${{ runner.temp }}/release-notes-gen-tool
+
   pre-activation:
     outputs:
       copilot_pat_number: ${{ steps.select-copilot-pat.outputs.copilot_pat_number }}
