@@ -2,13 +2,14 @@
 if: (!github.event.repository.fork) || github.event_name == 'workflow_dispatch'
 
 permissions:
+  actions: read
   contents: read
   pull-requests: read
   issues: read
 
 runtimes:
   dotnet:
-    version: "9.0"
+    version: "10.0"
 network:
   allowed:
     - defaults
@@ -30,8 +31,11 @@ tools:
   github:
     toolsets: [issues, pull_requests, repos, search]
   bash:
+    - dnx
     - dotnet
+    - gh
     - release-notes
+    - release-notes-gen
     - git
     - jq
 timeout-minutes: 120
@@ -45,16 +49,39 @@ on:
         required: false
         type: string
 
-  # ###############################################################
-  # Override the COPILOT_GITHUB_TOKEN secret usage for the workflow
-  # with a randomly-selected token from a pool of secrets.
-  #
-  # As soon as organization-level billing is offered for Agentic
-  # Workflows, this stop-gap approach will be removed.
-  #
-  # See: /.github/actions/select-copilot-pat/README.md
-  # ###############################################################
   steps:
+    - name: Setup .NET for tool install
+      uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5.2.0
+      with:
+        dotnet-version: '10.0'
+
+    - name: Install release-notes-gen tool
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        dotnet nuget add source https://nuget.pkg.github.com/richlander/index.json \
+          --name github-richlander \
+          --username github-actions \
+          --password "$GITHUB_TOKEN" \
+          --store-password-in-clear-text
+        dotnet tool install ReleaseNotes.Gen \
+          --tool-path "$RUNNER_TEMP/release-notes-gen-tool"
+
+    - name: Upload release-notes-gen tool
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+      with:
+        name: release-notes-gen-tool
+        path: ${{ runner.temp }}/release-notes-gen-tool
+
+    # ###############################################################
+    # Override the COPILOT_GITHUB_TOKEN secret usage for the workflow
+    # with a randomly-selected token from a pool of secrets.
+    #
+    # As soon as organization-level billing is offered for Agentic
+    # Workflows, this stop-gap approach will be removed.
+    #
+    # See: /.github/actions/select-copilot-pat/README.md
+    # ###############################################################
     - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       name: Checkout the select-copilot-pat action folder
       with:
@@ -137,6 +164,32 @@ Read these files and skills for detailed guidance:
   - **Claude Opus 4.6**
   - **GPT-5.4**
 - Give both reviewers the same inputs and ask for the same output shape. Synthesize the overlap, inspect meaningful disagreements, and prefer the shared `editorial-scoring` rubric over any single model's preference.
+
+## Tool setup
+
+The `release-notes-gen` tool is pre-installed and uploaded as a workflow artifact by the `pre_activation` job. **Before doing anything else**, download and configure it:
+
+```bash
+gh run download $GITHUB_RUN_ID --name release-notes-gen-tool --dir /tmp/release-notes-gen-tool
+chmod +x /tmp/release-notes-gen-tool/release-notes-gen
+export PATH="/tmp/release-notes-gen-tool:$PATH"
+release-notes-gen --help
+```
+
+If the download fails, install the tool directly (requires `GITHUB_TOKEN` in the environment):
+
+```bash
+dotnet nuget add source https://nuget.pkg.github.com/richlander/index.json \
+  --name github-richlander \
+  --username github-actions \
+  --password "$GITHUB_TOKEN" \
+  --store-password-in-clear-text
+dotnet tool install ReleaseNotes.Gen \
+  --tool-path /tmp/release-notes-gen-tool
+export PATH="/tmp/release-notes-gen-tool:$PATH"
+```
+
+Confirm the tool is working before proceeding. If neither method works, report the failure using `report_incomplete`.
 
 ## What to do each run
 
