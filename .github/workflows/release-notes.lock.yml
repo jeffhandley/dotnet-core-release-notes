@@ -23,7 +23,7 @@
 #
 # gh-aw-metadata: {"schema_version":"v3","frontmatter_hash":"c096c7ca406f2c01c20c58a1a4cc723a0839cea08868f86f1ce505c1c84ec176","compiler_version":"v0.66.1","strict":true,"agent_id":"copilot"}
 
-name: "Write Release Notes - Bisect Checkpoint 2"
+name: "Write Release Notes - Bisect Checkpoint 3"
 "on":
   schedule:
   - cron: "19 15 * * *"
@@ -67,7 +67,7 @@ permissions: {}
 concurrency:
   group: "gh-aw-${{ github.workflow }}"
 
-run-name: "Write Release Notes - Bisect Checkpoint 2"
+run-name: "Write Release Notes - Bisect Checkpoint 3"
 
 jobs:
   activation:
@@ -97,7 +97,7 @@ jobs:
           GH_AW_INFO_VERSION: "latest"
           GH_AW_INFO_AGENT_VERSION: "latest"
           GH_AW_INFO_CLI_VERSION: "v0.66.1"
-          GH_AW_INFO_WORKFLOW_NAME: "Write Release Notes - Bisect Checkpoint 2"
+          GH_AW_INFO_WORKFLOW_NAME: "Write Release Notes - Bisect Checkpoint 3"
           GH_AW_INFO_EXPERIMENTAL: "false"
           GH_AW_INFO_SUPPORTS_TOOLS_ALLOWLIST: "true"
           GH_AW_INFO_STAGED: "false"
@@ -915,7 +915,7 @@ jobs:
         env:
           GH_AW_AGENT_OUTPUT: ${{ steps.setup-agent-output-env.outputs.GH_AW_AGENT_OUTPUT }}
           GH_AW_NOOP_MAX: "1"
-          GH_AW_WORKFLOW_NAME: "Write Release Notes - Bisect Checkpoint 2"
+          GH_AW_WORKFLOW_NAME: "Write Release Notes - Bisect Checkpoint 3"
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_NOOP_REPORT_AS_ISSUE: "true"
@@ -932,7 +932,7 @@ jobs:
         env:
           GH_AW_AGENT_OUTPUT: ${{ steps.setup-agent-output-env.outputs.GH_AW_AGENT_OUTPUT }}
           GH_AW_MISSING_TOOL_CREATE_ISSUE: "true"
-          GH_AW_WORKFLOW_NAME: "Write Release Notes - Bisect Checkpoint 2"
+          GH_AW_WORKFLOW_NAME: "Write Release Notes - Bisect Checkpoint 3"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
@@ -946,7 +946,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ steps.setup-agent-output-env.outputs.GH_AW_AGENT_OUTPUT }}
-          GH_AW_WORKFLOW_NAME: "Write Release Notes - Bisect Checkpoint 2"
+          GH_AW_WORKFLOW_NAME: "Write Release Notes - Bisect Checkpoint 3"
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_WORKFLOW_ID: "release-notes"
@@ -1043,7 +1043,7 @@ jobs:
         if: always() && steps.detection_guard.outputs.run_detection == 'true'
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
-          WORKFLOW_NAME: "Write Release Notes - Bisect Checkpoint 2"
+          WORKFLOW_NAME: "Write Release Notes - Bisect Checkpoint 3"
           WORKFLOW_DESCRIPTION: "No description provided"
           HAS_PATCH: ${{ needs.agent.outputs.has_patch }}
         with:
@@ -1216,7 +1216,7 @@ jobs:
       GH_AW_ENGINE_ID: "copilot"
       GH_AW_ENGINE_MODEL: ${{ needs.agent.outputs.model }}
       GH_AW_WORKFLOW_ID: "release-notes"
-      GH_AW_WORKFLOW_NAME: "Write Release Notes - Bisect Checkpoint 2"
+      GH_AW_WORKFLOW_NAME: "Write Release Notes - Bisect Checkpoint 3"
     outputs:
       code_push_failure_count: ${{ steps.process_safe_outputs.outputs.code_push_failure_count }}
       code_push_failure_errors: ${{ steps.process_safe_outputs.outputs.code_push_failure_errors }}
