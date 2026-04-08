@@ -9,7 +9,7 @@ permissions:
 
 runtimes:
   dotnet:
-    version: "10.0"
+    version: "11.0"
 network:
   allowed:
     - defaults
@@ -92,7 +92,7 @@ jobs:
       - name: Setup .NET for tool install
         uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5.2.0
         with:
-          dotnet-version: '10.0'
+          dotnet-version: '11.0'
 
       - name: Install release-notes-gen tool
         env:
