@@ -1,0 +1,533 @@
+{
+  "release_version": "11.0.0-preview.3",
+  "release_date": "",
+  "changes": [
+    {
+      "id": "runtime@a0e5f72",
+      "repo": "runtime",
+      "product": "dotnet-runtime",
+      "title": "Emit Async Methods in crossgen2",
+      "url": "https://github.com/dotnet/runtime/pull/124203",
+      "commit": "dotnet@c1a2b3d",
+      "is_security": false,
+      "local_repo_commit": "runtime@a0e5f72",
+      "labels": ["area-crossgen2-coreclr", "runtime-async"],
+      "score": 7,
+      "score_reason": "Enables ahead-of-time compilation for runtime-async methods, widening platform support for the preview feature"
+    },
+    {
+      "id": "runtime@b1d6e83",
+      "repo": "runtime",
+      "product": "dotnet-runtime",
+      "title": "Add support for async thunk methods in GetNativeCodeInfo",
+      "url": "https://github.com/dotnet/runtime/pull/124354",
+      "commit": "dotnet@c1a2b3d",
+      "is_security": false,
+      "local_repo_commit": "runtime@b1d6e83",
+      "labels": ["area-Diagnostics-coreclr", "runtime-async"],
+      "score": 6,
+      "score_reason": "Diagnostic support for runtime-async methods; needed for profiler and debugger integration"
+    },
+    {
+      "id": "runtime@c2e7f94",
+      "repo": "runtime",
+      "product": "dotnet-runtime",
+      "title": "Add runtime async support for saving and reusing continuation instances",
+      "url": "https://github.com/dotnet/runtime/pull/125556",
+      "commit": "dotnet@d2b3c4e",
+      "is_security": false,
+      "local_repo_commit": "runtime@c2e7f94",
+      "labels": ["area-VM-coreclr", "runtime-async"],
+      "score": 7,
+      "score_reason": "Memory efficiency optimization for runtime-async; reduces GC pressure from continuation allocation"
+    },
+    {
+      "id": "runtime@d3f8a05",
+      "repo": "runtime",
+      "product": "dotnet-runtime",
+      "title": "JIT: Add a runtime async optimization to skip saving unmutated locals into reused continuations",
+      "url": "https://github.com/dotnet/runtime/pull/125615",
+      "commit": "dotnet@d2b3c4e",
+      "is_security": false,
+      "local_repo_commit": "runtime@d3f8a05",
+      "labels": ["area-CodeGen-coreclr", "runtime-async"],
+      "score": 6,
+      "score_reason": "JIT optimization reducing work in continuation management for runtime-async"
+    },
+    {
+      "id": "runtime@e4a9b16",
+      "repo": "runtime",
+      "product": "dotnet-runtime",
+      "title": "JIT: Funclet iterators",
+      "url": "https://github.com/dotnet/runtime/pull/126491",
+      "commit": "dotnet@e3c4d5f",
+      "is_security": false,
+      "local_repo_commit": "runtime@e4a9b16",
+      "labels": ["area-CodeGen-coreclr"],
+      "score": 4,
+      "score_reason": "Internal JIT infrastructure improvement enabling funclet-based code transforms; prerequisite for future optimizations"
+    },
+    {
+      "id": "runtime@f5b0c27",
+      "repo": "runtime",
+      "product": "dotnet-runtime",
+      "title": "JIT: Preference SDSU intervals away from killed registers",
+      "url": "https://github.com/dotnet/runtime/pull/125219",
+      "commit": "dotnet@e3c4d5f",
+      "is_security": false,
+      "local_repo_commit": "runtime@f5b0c27",
+      "labels": ["area-CodeGen-coreclr"],
+      "score": 4,
+      "score_reason": "Register allocator improvement reducing register spills in JIT-compiled code"
+    },
+    {
+      "id": "runtime@a6c1d38",
+      "repo": "runtime",
+      "product": "dotnet-runtime",
+      "title": "Enable GC regions on macOS",
+      "url": "https://github.com/dotnet/runtime/pull/125416",
+      "commit": "dotnet@f4d5e6a",
+      "is_security": false,
+      "local_repo_commit": "runtime@a6c1d38",
+      "labels": ["area-GC-coreclr", "os-osx"],
+      "score": 6,
+      "score_reason": "Enables GC regions (already default on Windows/Linux) on macOS, bringing heap management consistency across platforms"
+    },
+    {
+      "id": "runtime@b7d2e49",
+      "repo": "runtime",
+      "product": "dotnet-runtime",
+      "title": "Redo GC heap size fix in heavily pinning scenarios",
+      "url": "https://github.com/dotnet/runtime/pull/126043",
+      "commit": "dotnet@f4d5e6a",
+      "is_security": false,
+      "local_repo_commit": "runtime@b7d2e49",
+      "labels": ["area-GC-coreclr"],
+      "score": 5,
+      "score_reason": "Correctness fix for GC heap sizing that impacts workloads with heavy pinning (e.g. interop-heavy code)"
+    },
+    {
+      "id": "runtime@c8e3f50",
+      "repo": "runtime",
+      "product": "dotnet-libraries",
+      "title": "Add SafeFileHandle.CreateAnonymousPipe with per-end async support, non-blocking I/O support, and Process.Windows adoption",
+      "url": "https://github.com/dotnet/runtime/pull/125220",
+      "commit": "dotnet@a5b6c7d",
+      "is_security": false,
+      "local_repo_commit": "runtime@c8e3f50",
+      "labels": ["area-System.IO"],
+      "score": 7,
+      "score_reason": "New API for anonymous pipe creation with configurable async/non-blocking modes and unified Windows/Unix behavior"
+    },
+    {
+      "id": "runtime@d9f4a61",
+      "repo": "runtime",
+      "product": "dotnet-libraries",
+      "title": "Implement async handle support on Unix for FileStream",
+      "url": "https://github.com/dotnet/runtime/pull/125377",
+      "commit": "dotnet@a5b6c7d",
+      "is_security": false,
+      "local_repo_commit": "runtime@d9f4a61",
+      "labels": ["area-System.IO"],
+      "score": 6,
+      "score_reason": "Adds async handle support to FileStream on Unix, closing a long-standing gap with Windows behavior"
+    },
+    {
+      "id": "runtime@e0a5b72",
+      "repo": "runtime",
+      "product": "dotnet-libraries",
+      "title": "Relax RandomAccess type requirements: make Read/Write methods work with non-seekable files",
+      "url": "https://github.com/dotnet/runtime/pull/125512",
+      "commit": "dotnet@a5b6c7d",
+      "is_security": false,
+      "local_repo_commit": "runtime@e0a5b72",
+      "labels": ["area-System.IO"],
+      "score": 5,
+      "score_reason": "Relaxes type restriction so RandomAccess.Read/Write can be used with non-seekable file handles"
+    },
+    {
+      "id": "runtime@f1b6c83",
+      "repo": "runtime",
+      "product": "dotnet-libraries",
+      "title": "Add DirectoryPath property to DirectoryNotFoundException",
+      "url": "https://github.com/dotnet/runtime/pull/126428",
+      "commit": "dotnet@b6c7d8e",
+      "is_security": false,
+      "local_repo_commit": "runtime@f1b6c83",
+      "labels": ["area-System.IO", "api-approved"],
+      "score": 6,
+      "score_reason": "New diagnostic API making it easier to identify which directory was not found without parsing exception message"
+    },
+    {
+      "id": "runtime@a2c7d94",
+      "repo": "runtime",
+      "product": "dotnet-libraries",
+      "title": "Add Utf8JsonWriter.Reset overloads accepting JsonWriterOptions",
+      "url": "https://github.com/dotnet/runtime/pull/126578",
+      "commit": "dotnet@b6c7d8e",
+      "is_security": false,
+      "local_repo_commit": "runtime@a2c7d94",
+      "labels": ["area-System.Text.Json"],
+      "score": 6,
+      "score_reason": "New overloads letting callers change writer options at reset time without constructing a new writer"
+    },
+    {
+      "id": "runtime@b3d8e05",
+      "repo": "runtime",
+      "product": "dotnet-libraries",
+      "title": "Add Join/LeftJoin/RightJoin tuple overloads to LINQ APIs",
+      "url": "https://github.com/dotnet/runtime/pull/121998",
+      "commit": "dotnet@c7d8e9f",
+      "is_security": false,
+      "local_repo_commit": "runtime@b3d8e05",
+      "labels": ["area-System.Linq", "api-approved"],
+      "score": 8,
+      "score_reason": "New LINQ join overloads returning tuples eliminate the need for key/result selectors in common join patterns"
+    },
+    {
+      "id": "runtime@c4e9f16",
+      "repo": "runtime",
+      "product": "dotnet-libraries",
+      "title": "Add GroupJoin overload returning IGrouping",
+      "url": "https://github.com/dotnet/runtime/pull/121999",
+      "commit": "dotnet@c7d8e9f",
+      "is_security": false,
+      "local_repo_commit": "runtime@c4e9f16",
+      "labels": ["area-System.Linq", "api-approved"],
+      "score": 0,
+      "score_reason": "Reverted before release",
+      "reverted_by": ["https://github.com/dotnet/runtime/pull/126624"]
+    },
+    {
+      "id": "runtime@d5f0a27",
+      "repo": "runtime",
+      "product": "dotnet-libraries",
+      "title": "AsyncEnumerable.ToAsyncEnumerable: return source directly if it implements IAsyncEnumerable",
+      "url": "https://github.com/dotnet/runtime/pull/126362",
+      "commit": "dotnet@d8e9f0a",
+      "is_security": false,
+      "local_repo_commit": "runtime@d5f0a27",
+      "labels": ["area-System.Linq"],
+      "score": 5,
+      "score_reason": "Performance improvement avoiding unnecessary wrapping when a source already implements IAsyncEnumerable"
+    },
+    {
+      "id": "runtime@e6a1b38",
+      "repo": "runtime",
+      "product": "dotnet-libraries",
+      "title": "Improve HashSet<T> performance by enabling JIT bounds check elimination",
+      "url": "https://github.com/dotnet/runtime/pull/125893",
+      "commit": "dotnet@e9f0a1b",
+      "is_security": false,
+      "local_repo_commit": "runtime@e6a1b38",
+      "labels": ["area-System.Collections"],
+      "score": 5,
+      "score_reason": "Performance improvement to HashSet<T> via JIT bounds check elimination"
+    },
+    {
+      "id": "runtime@f7b2c49",
+      "repo": "runtime",
+      "product": "dotnet-libraries",
+      "title": "Split Dictionary.Remove inner loops for value-type key optimization",
+      "url": "https://github.com/dotnet/runtime/pull/125884",
+      "commit": "dotnet@e9f0a1b",
+      "is_security": false,
+      "local_repo_commit": "runtime@f7b2c49",
+      "labels": ["area-System.Collections"],
+      "score": 5,
+      "score_reason": "Performance improvement to Dictionary.Remove for value-type keys"
+    },
+    {
+      "id": "runtime@a8c3d50",
+      "repo": "runtime",
+      "product": "dotnet-libraries",
+      "title": "Initialize WebProxy credentials from URI UserInfo",
+      "url": "https://github.com/dotnet/runtime/pull/125384",
+      "commit": "dotnet@f0a1b2c",
+      "is_security": false,
+      "local_repo_commit": "runtime@a8c3d50",
+      "labels": ["area-System.Net"],
+      "score": 5,
+      "score_reason": "Usability improvement: WebProxy now reads credentials from URI userinfo section automatically"
+    },
+    {
+      "id": "aspnetcore@b9d4e61",
+      "repo": "aspnetcore",
+      "product": "dotnet-aspnetcore",
+      "title": "Virtualization supports variable-height items",
+      "url": "https://github.com/dotnet/aspnetcore/pull/64964",
+      "commit": "dotnet@a1b2c3d",
+      "is_security": false,
+      "local_repo_commit": "aspnetcore@b9d4e61",
+      "labels": ["area-blazor"],
+      "score": 8,
+      "score_reason": "Highly requested Blazor feature: the Virtualize component can now handle items of varying heights"
+    },
+    {
+      "id": "aspnetcore@c0e5f72",
+      "repo": "aspnetcore",
+      "product": "dotnet-aspnetcore",
+      "title": "[Virtualization] Visible content does not shift when in-DOM items above the viewport change height",
+      "url": "https://github.com/dotnet/aspnetcore/pull/65951",
+      "commit": "dotnet@a1b2c3d",
+      "is_security": false,
+      "local_repo_commit": "aspnetcore@c0e5f72",
+      "labels": ["area-blazor"],
+      "score": 6,
+      "score_reason": "Companion fix to variable-height virtualization: prevents scroll jump when items above viewport resize"
+    },
+    {
+      "id": "aspnetcore@d1f6a83",
+      "repo": "aspnetcore",
+      "product": "dotnet-aspnetcore",
+      "title": "Add Microsoft.Data.SqlClient.Extensions.Azure to Individual Auth templates",
+      "url": "https://github.com/dotnet/aspnetcore/pull/66179",
+      "commit": "dotnet@b2c3d4e",
+      "is_security": false,
+      "local_repo_commit": "aspnetcore@d1f6a83",
+      "labels": ["area-identity"],
+      "score": 5,
+      "score_reason": "Individual auth project templates now include Azure-aware SqlClient for Managed Identity scenarios"
+    }
+  ],
+  "commits": {
+    "runtime@a0e5f72": {
+      "repo": "runtime",
+      "branch": "main",
+      "hash": "a0e5f72ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/runtime/commit/a0e5f72ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f.diff"
+    },
+    "runtime@b1d6e83": {
+      "repo": "runtime",
+      "branch": "main",
+      "hash": "b1d6e83ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/runtime/commit/b1d6e83ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f.diff"
+    },
+    "runtime@c2e7f94": {
+      "repo": "runtime",
+      "branch": "main",
+      "hash": "c2e7f94ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/runtime/commit/c2e7f94ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f.diff"
+    },
+    "runtime@d3f8a05": {
+      "repo": "runtime",
+      "branch": "main",
+      "hash": "d3f8a05ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/runtime/commit/d3f8a05ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f.diff"
+    },
+    "runtime@e4a9b16": {
+      "repo": "runtime",
+      "branch": "main",
+      "hash": "e4a9b16ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/runtime/commit/e4a9b16ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f.diff"
+    },
+    "runtime@f5b0c27": {
+      "repo": "runtime",
+      "branch": "main",
+      "hash": "f5b0c27ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/runtime/commit/f5b0c27ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f.diff"
+    },
+    "runtime@a6c1d38": {
+      "repo": "runtime",
+      "branch": "main",
+      "hash": "a6c1d38ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/runtime/commit/a6c1d38ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f.diff"
+    },
+    "runtime@b7d2e49": {
+      "repo": "runtime",
+      "branch": "main",
+      "hash": "b7d2e49ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/runtime/commit/b7d2e49ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f.diff"
+    },
+    "runtime@c8e3f50": {
+      "repo": "runtime",
+      "branch": "main",
+      "hash": "c8e3f50ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/runtime/commit/c8e3f50ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f.diff"
+    },
+    "runtime@d9f4a61": {
+      "repo": "runtime",
+      "branch": "main",
+      "hash": "d9f4a61ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/runtime/commit/d9f4a61ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f.diff"
+    },
+    "runtime@e0a5b72": {
+      "repo": "runtime",
+      "branch": "main",
+      "hash": "e0a5b72ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/runtime/commit/e0a5b72ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f.diff"
+    },
+    "runtime@f1b6c83": {
+      "repo": "runtime",
+      "branch": "main",
+      "hash": "f1b6c83ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/runtime/commit/f1b6c83ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f.diff"
+    },
+    "runtime@a2c7d94": {
+      "repo": "runtime",
+      "branch": "main",
+      "hash": "a2c7d94ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/runtime/commit/a2c7d94ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f.diff"
+    },
+    "runtime@b3d8e05": {
+      "repo": "runtime",
+      "branch": "main",
+      "hash": "b3d8e05ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/runtime/commit/b3d8e05ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f.diff"
+    },
+    "runtime@c4e9f16": {
+      "repo": "runtime",
+      "branch": "main",
+      "hash": "c4e9f16ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/runtime/commit/c4e9f16ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f.diff"
+    },
+    "runtime@d5f0a27": {
+      "repo": "runtime",
+      "branch": "main",
+      "hash": "d5f0a27ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/runtime/commit/d5f0a27ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f.diff"
+    },
+    "runtime@e6a1b38": {
+      "repo": "runtime",
+      "branch": "main",
+      "hash": "e6a1b38ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/runtime/commit/e6a1b38ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f.diff"
+    },
+    "runtime@f7b2c49": {
+      "repo": "runtime",
+      "branch": "main",
+      "hash": "f7b2c49ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/runtime/commit/f7b2c49ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f.diff"
+    },
+    "runtime@a8c3d50": {
+      "repo": "runtime",
+      "branch": "main",
+      "hash": "a8c3d50ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/runtime/commit/a8c3d50ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f.diff"
+    },
+    "aspnetcore@b9d4e61": {
+      "repo": "aspnetcore",
+      "branch": "main",
+      "hash": "b9d4e61ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/aspnetcore/commit/b9d4e61ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f.diff"
+    },
+    "aspnetcore@c0e5f72": {
+      "repo": "aspnetcore",
+      "branch": "main",
+      "hash": "c0e5f72ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/aspnetcore/commit/c0e5f72ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f.diff"
+    },
+    "aspnetcore@d1f6a83": {
+      "repo": "aspnetcore",
+      "branch": "main",
+      "hash": "d1f6a83ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/aspnetcore/commit/d1f6a83ca2f9c2d7e8f1f0a9d3d0f08e31c0ad5f.diff"
+    },
+    "dotnet@a1b2c3d": {
+      "repo": "dotnet",
+      "branch": "release/11.0.1xx-preview3",
+      "hash": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/dotnet/commit/a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0.diff"
+    },
+    "dotnet@b2c3d4e": {
+      "repo": "dotnet",
+      "branch": "release/11.0.1xx-preview3",
+      "hash": "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/dotnet/commit/b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1.diff"
+    },
+    "dotnet@c1a2b3d": {
+      "repo": "dotnet",
+      "branch": "release/11.0.1xx-preview3",
+      "hash": "c1a2b3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/dotnet/commit/c1a2b3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0.diff"
+    },
+    "dotnet@d2b3c4e": {
+      "repo": "dotnet",
+      "branch": "release/11.0.1xx-preview3",
+      "hash": "d2b3c4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/dotnet/commit/d2b3c4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1.diff"
+    },
+    "dotnet@e3c4d5f": {
+      "repo": "dotnet",
+      "branch": "release/11.0.1xx-preview3",
+      "hash": "e3c4d5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/dotnet/commit/e3c4d5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2.diff"
+    },
+    "dotnet@f4d5e6a": {
+      "repo": "dotnet",
+      "branch": "release/11.0.1xx-preview3",
+      "hash": "f4d5e6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/dotnet/commit/f4d5e6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3.diff"
+    },
+    "dotnet@a5b6c7d": {
+      "repo": "dotnet",
+      "branch": "release/11.0.1xx-preview3",
+      "hash": "a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/dotnet/commit/a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4.diff"
+    },
+    "dotnet@b6c7d8e": {
+      "repo": "dotnet",
+      "branch": "release/11.0.1xx-preview3",
+      "hash": "b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/dotnet/commit/b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5.diff"
+    },
+    "dotnet@c7d8e9f": {
+      "repo": "dotnet",
+      "branch": "release/11.0.1xx-preview3",
+      "hash": "c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/dotnet/commit/c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6.diff"
+    },
+    "dotnet@d8e9f0a": {
+      "repo": "dotnet",
+      "branch": "release/11.0.1xx-preview3",
+      "hash": "d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/dotnet/commit/d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7.diff"
+    },
+    "dotnet@e9f0a1b": {
+      "repo": "dotnet",
+      "branch": "release/11.0.1xx-preview3",
+      "hash": "e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/dotnet/commit/e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8.diff"
+    },
+    "dotnet@f0a1b2c": {
+      "repo": "dotnet",
+      "branch": "release/11.0.1xx-preview3",
+      "hash": "f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9",
+      "org": "dotnet",
+      "url": "https://github.com/dotnet/dotnet/commit/f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9.diff"
+    }
+  }
+}
