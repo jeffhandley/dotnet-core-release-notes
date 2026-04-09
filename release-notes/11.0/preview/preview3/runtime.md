@@ -26,10 +26,8 @@ The runtime can now save and reuse continuation instances rather than allocating
 
 GC regions are now enabled by default on macOS, matching the behavior already in place on Windows and Linux since .NET 8. Regions allow the GC to reclaim and reuse heap memory in finer-grained increments, which reduces fragmentation and can lower overall memory usage on long-running applications. Apple silicon workloads in particular may benefit from more predictable heap growth. ([dotnet/runtime #125416](https://github.com/dotnet/runtime/pull/125416))
 
----
-
 ## JIT
 
-### Funclet iterators
+### SDSU interval register allocation
 
-The JIT now processes funclets (exception handler and filter regions) through a dedicated iterator rather than ad-hoc enumeration. This is infrastructure work that enables several planned optimizations including improved async transformation passes. ([dotnet/runtime #126491](https://github.com/dotnet/runtime/pull/126491))
+The JIT now preferentially assigns single-definition single-use (SDSU) intervals to registers not destroyed by nearby calls, reducing unnecessary spills in method prologues and epilogues. This improves code density for methods that call helpers before using their result. ([dotnet/runtime #125219](https://github.com/dotnet/runtime/pull/125219))

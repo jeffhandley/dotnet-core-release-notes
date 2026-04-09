@@ -55,19 +55,6 @@
       "score_reason": "JIT optimization reducing work in continuation management for runtime-async"
     },
     {
-      "id": "runtime@e4a9b16",
-      "repo": "runtime",
-      "product": "dotnet-runtime",
-      "title": "JIT: Funclet iterators",
-      "url": "https://github.com/dotnet/runtime/pull/126491",
-      "commit": "dotnet@e3c4d5f",
-      "is_security": false,
-      "local_repo_commit": "runtime@e4a9b16",
-      "labels": ["area-CodeGen-coreclr"],
-      "score": 4,
-      "score_reason": "Internal JIT infrastructure improvement enabling funclet-based code transforms; prerequisite for future optimizations"
-    },
-    {
       "id": "runtime@f5b0c27",
       "repo": "runtime",
       "product": "dotnet-runtime",
@@ -155,8 +142,8 @@
       "is_security": false,
       "local_repo_commit": "runtime@f1b6c83",
       "labels": ["area-System.IO", "api-approved"],
-      "score": 6,
-      "score_reason": "New diagnostic API making it easier to identify which directory was not found without parsing exception message"
+      "score": 0,
+      "score_reason": "Merged after preview3 runtime cut (2026-04-06). Will appear in preview4."
     },
     {
       "id": "runtime@a2c7d94",
@@ -168,8 +155,8 @@
       "is_security": false,
       "local_repo_commit": "runtime@a2c7d94",
       "labels": ["area-System.Text.Json"],
-      "score": 6,
-      "score_reason": "New overloads letting callers change writer options at reset time without constructing a new writer"
+      "score": 0,
+      "score_reason": "Merged after preview3 runtime cut (2026-04-07). Will appear in preview4."
     },
     {
       "id": "runtime@b3d8e05",
@@ -181,8 +168,8 @@
       "is_security": false,
       "local_repo_commit": "runtime@b3d8e05",
       "labels": ["area-System.Linq", "api-approved"],
-      "score": 8,
-      "score_reason": "New LINQ join overloads returning tuples eliminate the need for key/result selectors in common join patterns"
+      "score": 0,
+      "score_reason": "Merged after preview3 runtime cut (2026-04-06). Will appear in preview4."
     },
     {
       "id": "runtime@c4e9f16",
@@ -273,8 +260,8 @@
       "is_security": false,
       "local_repo_commit": "aspnetcore@c0e5f72",
       "labels": ["area-blazor"],
-      "score": 6,
-      "score_reason": "Companion fix to variable-height virtualization: prevents scroll jump when items above viewport resize"
+      "score": 0,
+      "score_reason": "Merged after preview3 aspnetcore cut (2026-03-30, cut was 2026-03-25). Will appear in preview4."
     },
     {
       "id": "aspnetcore@d1f6a83",
@@ -286,8 +273,8 @@
       "is_security": false,
       "local_repo_commit": "aspnetcore@d1f6a83",
       "labels": ["area-identity"],
-      "score": 5,
-      "score_reason": "Individual auth project templates now include Azure-aware SqlClient for Managed Identity scenarios"
+      "score": 0,
+      "score_reason": "Merged 2026-04-08 with milestone 11.0-preview4. Not in preview3."
     }
   ],
   "commits": {

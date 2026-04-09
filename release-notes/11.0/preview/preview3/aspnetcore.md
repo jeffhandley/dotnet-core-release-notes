@@ -24,10 +24,4 @@ To use variable-height virtualization, supply an `ItemSize` callback instead of 
 </Virtualize>
 ```
 
-The component measures each rendered item and adjusts scroll estimates accordingly. A companion fix ensures the visible viewport does not jump when items above it resize while they remain in the DOM. ([dotnet/aspnetcore #65951](https://github.com/dotnet/aspnetcore/pull/65951))
-
-## Project templates
-
-### Azure SQL with Managed Identity in Individual Auth templates
-
-The Individual Auth project template now includes `Microsoft.Data.SqlClient.Extensions.Azure`, enabling Managed Identity authentication against Azure SQL without any additional configuration when deploying to Azure. ([dotnet/aspnetcore #66179](https://github.com/dotnet/aspnetcore/pull/66179))
+The component measures each rendered item and adjusts scroll estimates accordingly.
