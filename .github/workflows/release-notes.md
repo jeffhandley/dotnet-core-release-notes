@@ -179,7 +179,10 @@ Read these files and skills for detailed guidance:
 ## Tool setup
 
 The workflow shell is allowlisted. Prefer the approved commands above plus the `write`
-tool, and avoid Python and shell job-control built-ins such as `jobs` and `wait`.
+tool. Use the GitHub tool for repository, PR, issue, and workflow queries whenever
+possible. Avoid Python, env-var probing loops, raw web/API fetches for GitHub data,
+shell job-control built-ins such as `jobs` and `wait`, and unnecessary command
+chains or redirections.
 
 The `release-notes-gen` tool is pre-installed and uploaded as a workflow artifact by the `pre_activation` job. **Before doing anything else**, download and configure it:
 
@@ -189,6 +192,9 @@ chmod +x /tmp/release-notes-gen-tool/release-notes-gen
 export PATH="/tmp/release-notes-gen-tool:$PATH"
 release-notes-gen --help
 ```
+
+Run those as separate commands if needed. Do **not** invoke the tool by absolute path
+when `release-notes-gen` is already on `PATH`.
 
 If the download fails, install the tool directly (requires `GITHUB_TOKEN` in the environment):
 

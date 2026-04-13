@@ -134,6 +134,9 @@ phase and then stop. The selected phase for this run is: `${{ inputs.phase }}`.
 - Never try alternate credential names or fallback token discovery.
 - Never use Python.
 - Never use shell job-control built-ins such as `jobs`, `wait`, or backgrounding tricks.
+- Prefer one simple shell command per tool call. Avoid `&&`, shell loops, and `2>&1`
+  unless they are absolutely required.
+- Use GitHub tools for GitHub data. Do not fetch GitHub web pages or raw API URLs.
 - Do not create branches, commits, pull requests, or comments.
 - Do not modify files in this repository. If you need scratch space, use `/tmp/release-notes-smoke/` only.
 
@@ -146,7 +149,8 @@ use only these commands:
 ```bash
 gh run download $GITHUB_RUN_ID --name release-notes-gen-tool --dir /tmp/release-notes-gen-tool
 chmod +x /tmp/release-notes-gen-tool/release-notes-gen
-/tmp/release-notes-gen-tool/release-notes-gen --help
+export PATH="/tmp/release-notes-gen-tool:$PATH"
+release-notes-gen --help
 ```
 
 If that artifact path does not work, stop and report the failure. Do **not** try an
@@ -155,8 +159,8 @@ inline install, do **not** probe env vars, and do **not** improvise another setu
 ## Phases
 
 1. `boot` — read-only sanity check. Report the repository name, current branch, and HEAD SHA.
-2. `tool` — download the artifact and prove `release-notes-gen --help` runs.
-3. `github-read` — using GitHub tools, list the latest three `Write Release Notes` workflow runs in this repo and summarize their status.
+2. `tool` — download the artifact and prove `release-notes-gen --help` runs. Do not invoke the binary by absolute path.
+3. `github-read` — using GitHub tools only, list the latest three `Write Release Notes` workflow runs in this repo and summarize their status. Do not use shell `gh` and do not fetch web content.
 4. `file-write` — create `/tmp/release-notes-smoke/`, copy `README.md` to `/tmp/release-notes-smoke/README.md`, and list the directory contents.
 5. `changes` — clone `https://github.com/dotnet/dotnet` to `/tmp/dotnet-smoke` and show the first few lines of `main:eng/Versions.props`. Do not generate release notes or write repo files.
 
