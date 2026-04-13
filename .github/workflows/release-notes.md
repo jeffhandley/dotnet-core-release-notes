@@ -38,6 +38,12 @@ tools:
     - release-notes-gen
     - git
     - jq
+    - mkdir
+    - cp
+    - mv
+    - rm
+    - chmod
+    - curl
 timeout-minutes: 120
 
 on:
@@ -171,6 +177,9 @@ Read these files and skills for detailed guidance:
 - Give both reviewers the same inputs and ask for the same output shape. Synthesize the overlap, inspect meaningful disagreements, and prefer the shared `editorial-scoring` rubric over any single model's preference.
 
 ## Tool setup
+
+The workflow shell is allowlisted. Prefer the approved commands above plus the `write`
+tool, and avoid Python and shell job-control built-ins such as `jobs` and `wait`.
 
 The `release-notes-gen` tool is pre-installed and uploaded as a workflow artifact by the `pre_activation` job. **Before doing anything else**, download and configure it:
 
