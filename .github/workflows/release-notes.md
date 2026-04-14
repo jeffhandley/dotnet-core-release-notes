@@ -184,6 +184,15 @@ possible. Avoid Python, env-var probing loops, raw web/API fetches for GitHub da
 shell job-control built-ins such as `jobs` and `wait`, and unnecessary command
 chains or redirections.
 
+### Tool naming in this runtime
+
+Use the **exact** MCP tool names exposed by the runtime. They are namespaced:
+
+- GitHub read tools are prefixed with `github-` (for example `github-list_pull_requests`, `github-search_pull_requests`, `github-get_file_contents`)
+- Safe output tools are prefixed with `safeoutputs-` (for example `safeoutputs-create_pull_request`, `safeoutputs-push_to_pull_request_branch`, `safeoutputs-add_comment`, `safeoutputs-noop`, `safeoutputs-missing_tool`, `safeoutputs-missing_data`, `safeoutputs-report_incomplete`)
+
+Do **not** call unprefixed names such as `create_pull_request`, `push_to_pull_request_branch`, `add-comment`, `noop`, or `report_incomplete`. If you need a tool, first confirm the exact runtime name from the available tool list and then use that exact name.
+
 The `release-notes-gen` tool is pre-installed and uploaded as a workflow artifact by the `pre_activation` job. **Before doing anything else**, download and configure it:
 
 ```bash
@@ -209,7 +218,7 @@ dotnet tool install ReleaseNotes.Gen \
 export PATH="/tmp/release-notes-gen-tool:$PATH"
 ```
 
-Confirm the tool is working before proceeding. If neither method works, report the failure using `report_incomplete`.
+Confirm the tool is working before proceeding. If neither method works, report the failure using `safeoutputs-report_incomplete`.
 
 ## What to do each run
 
@@ -256,6 +265,13 @@ For each iteration N where `latest_shipped < N <= main_iteration`:
 
 Each milestone gets its own branch and PR on this repo.
 
+This is **per release, not per run**:
+
+- reuse the same branch and the same PR for the same release on every rerun
+- never create a second branch or a second PR for a release that already has one
+- it is normal for more than one release branch/PR to exist at the same time when multiple releases are active
+- in practice this will usually be one or two active release branches, but handle any active set you discover
+
 #### e. Determine base and head refs per milestone
 
 For each active milestone N:
@@ -270,7 +286,7 @@ For each active milestone N:
 
 ### 2. For each active milestone
 
-Process milestones in order (lowest to highest). Each gets its own branch and PR.
+Process milestones in order (lowest to highest). Each active milestone keeps its own long-lived branch and PR for the lifetime of that release draft.
 
 #### a. Regenerate changes.json
 
@@ -346,12 +362,22 @@ If a PR branch already exists:
 
 ```bash
 # What has changed on the branch since we last pushed?
-git log --oneline --author!=github-actions origin/release-notes/11.0-preview4
+git log --oneline --decorate origin/release-notes/11.0-preview4
 ```
 
-Identify which markdown files humans have edited. For those files, diff them to understand what changed. Do NOT overwrite human-edited sections. Only add new sections or update sections the agent previously wrote that no human has touched.
+Treat branch history as **provenance**, not just diff noise.
+
+Before editing any existing file on the branch:
+
+- inspect the commit history on that branch and identify whether the relevant changes came from `github-actions[bot]` / prior agent runs or from human authors
+- for files you plan to modify, inspect the commits that last touched the relevant sections and, when needed, use line-level provenance (`git blame`) to see who last edited the text
+- assume content written by non-bot authors is human-owned unless you have strong evidence otherwise
+
+Identify which markdown files and sections humans have edited. For those files, diff them to understand what changed. Do **not** overwrite human-edited sections. Only add new sections or update sections the agent previously wrote that no human has touched. If human-written and agent-written material are interleaved, make the smallest safe edit around the human content instead of rewriting the whole section.
 
 If the branch already has drafted markdown, that content is the **baseline** for the next run. Follow the shared `update-existing-branch` playbook: refresh `changes.json` only if the preview moved forward, merge the delta into `features.json`, preserve the current structure, address unresolved feedback, and update only the sections affected by new evidence or newly shipped changes.
+
+If provenance is ambiguous, preserve the existing text and ask on the PR before changing it.
 
 #### e. Write or update markdown
 
@@ -385,7 +411,11 @@ Check all comments and review threads on the PR since the last run:
 - **Disagreements** (e.g., "I don't think this shipped") → cross-check against `changes.json`. If the commenter is right, fix it. If unclear, reply explaining what you found and ask for clarification
 - **Resolved threads** → skip
 
-When unsure about a human's intent, ask. Use `add-comment` to reply. This is a conversation, not a one-shot generation.
+Pay special attention to comments that are clearly addressed to the workflow or agent — for example comments that mention the automation directly, ask it to make a change, ask why it chose some wording, or point out a mistake it introduced. Do not silently consume those. Reply after you act, or reply explaining why you did not act.
+
+Comments may also direct the agent to make **branch changes** — for example "please add this missing feature", "rewrite this section", "keep the current structure but update the intro", "drop this heading", or "preserve the human wording in this paragraph". Treat those as first-class instructions for the next branch update. Apply them on the release branch when they are clear and consistent with shipped content, then reply summarizing what changed. If the request conflicts with release fidelity or is ambiguous, explain the conflict and ask for clarification instead of ignoring it.
+
+When unsure about a human's intent, ask. Use `safeoutputs-add_comment` to reply. This is a conversation, not a one-shot generation.
 
 #### h. Run the final multi-model review
 
@@ -416,12 +446,21 @@ Ask for file + heading + issue + suggested rewrite, not generic preference. Then
 
 #### i. Create or update the PR
 
-- **No PR exists** → create branch `release-notes/11.0-preview4`, commit, open draft PR
-- **PR exists** → push updates to the existing branch, comment summarizing what changed
+- **No PR exists for this release** → create branch `release-notes/11.0-preview4`, commit, then call `safeoutputs-create_pull_request` to open the draft PR
+- **PR already exists for this release** → reuse that exact branch, commit the updates, then call `safeoutputs-push_to_pull_request_branch` to publish them to the existing branch and use `safeoutputs-add_comment` to summarize what changed
+
+Branch identity is release-scoped. Do **not** mint a fresh branch name for a rerun of the same release just because the workflow ran again on a later day.
 
 PR title format: `[release-notes] .NET 11 Preview 4`
 
 PR body should summarize: milestone, number of changes, which component files were written/updated, and any open questions or items needing human review.
+
+This publication step is **required**. A run that edits files for an active milestone is not complete until it has either:
+
+- published a new branch/PR with `safeoutputs-create_pull_request`, or
+- published updates to an existing PR branch with `safeoutputs-push_to_pull_request_branch`
+
+If you have local commits for an active milestone but cannot publish them because a required safe output tool is unavailable or fails, do **not** emit `safeoutputs-noop`. Instead, call `safeoutputs-report_incomplete` and explain exactly what is waiting to be published.
 
 ### 3. Handle transitions
 
