@@ -48,7 +48,6 @@ tools:
     - pwd
     - echo
     - grep
-    - curl
 timeout-minutes: 120
 
 on:
@@ -195,6 +194,8 @@ In particular:
 - do **not** inspect `/tmp/gh-aw`, `/tmp/gh-aw/mcp-config`, or other runner internals to discover tool names or configuration; rely on the runtime tool list and the documented tool names in this prompt
 - do **not** `git checkout` files from `/tmp/dotnet` into the working tree just to read them; use `git show <ref>:<path>` instead
 - do **not** scan the runner filesystem looking for preinstalled tools when the workflow already told you where the artifact is downloaded and what binary name to run
+- do **not** use `curl` or raw GitHub REST endpoints for workflow runs, artifacts, PRs, comments, or repository contents; use `gh` or the GitHub MCP tools instead
+- do **not** inspect environment variables to hunt for tokens, credentials, or auth state; assume `gh` and the GitHub MCP tools are the supported authenticated interfaces in this workflow
 
 For VMR content, use the **local git checkout** you cloned into `/tmp/dotnet` as the source of truth for repository files and ref comparisons:
 
@@ -232,6 +233,16 @@ release-notes-gen --help
 
 Run those as separate commands if needed. Do **not** invoke the tool by absolute path
 when `release-notes-gen` is already on `PATH`.
+
+The artifact contract is fixed for this workflow:
+
+- current run id: `$GITHUB_RUN_ID`
+- artifact name: `release-notes-gen-tool`
+- download mechanism: `gh run download`, not `curl` and not raw Actions artifact APIs
+
+If `gh run download $GITHUB_RUN_ID --name release-notes-gen-tool ...` fails, do **not**
+probe the Actions API, list artifacts with ad hoc shell commands, or inspect runner
+internals to debug it. Go straight to the fallback install path below.
 
 If the download fails, install the tool directly (requires `GITHUB_TOKEN` in the environment):
 
