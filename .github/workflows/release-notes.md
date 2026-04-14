@@ -43,6 +43,11 @@ tools:
     - mv
     - rm
     - chmod
+    - cat
+    - ls
+    - pwd
+    - echo
+    - grep
     - curl
 timeout-minutes: 120
 
@@ -178,17 +183,32 @@ Read these files and skills for detailed guidance:
 
 ## Tool setup
 
-The workflow shell is allowlisted. Prefer the approved commands above plus the `write`
-tool. Use the GitHub tool for repository, PR, issue, and workflow queries whenever
-possible. Avoid Python, env-var probing loops, raw web/API fetches for GitHub data,
-shell job-control built-ins such as `jobs` and `wait`, and unnecessary command
-chains or redirections.
+The workflow shell is allowlisted. Stick to the commands declared in the frontmatter
+above plus the `write` tool. Use the GitHub tool for repository, PR, issue, and
+workflow queries whenever possible. Avoid Python or other ad hoc interpreters,
+env-var probing loops, raw web/API fetches for GitHub data, shell job-control
+built-ins such as `jobs` and `wait`, and unnecessary command chains or redirections.
+
+In particular:
+
+- do **not** use `python3 -c`, heredocs, or pipe JSON into an interpreter just to inspect it; use `jq` directly when you need JSON filtering
+- do **not** inspect `/tmp/gh-aw`, `/tmp/gh-aw/mcp-config`, or other runner internals to discover tool names or configuration; rely on the runtime tool list and the documented tool names in this prompt
+- do **not** `git checkout` files from `/tmp/dotnet` into the working tree just to read them; use `git show <ref>:<path>` instead
+- do **not** scan the runner filesystem looking for preinstalled tools when the workflow already told you where the artifact is downloaded and what binary name to run
 
 For VMR content, use the **local git checkout** you cloned into `/tmp/dotnet` as the source of truth for repository files and ref comparisons:
 
 - read `src/source-manifest.json` with `git -C /tmp/dotnet show <ref>:src/source-manifest.json`
 - inspect files at a ref with `git -C /tmp/dotnet show <ref>:<path>`
 - compare refs with local `git log`, `git diff`, `git rev-list`, and related git commands
+
+When you need to inspect `source-manifest.json`, prefer `jq` over Python. For
+example:
+
+```bash
+git -C /tmp/dotnet show main:src/source-manifest.json | \
+  jq -r '.repositories[:30][] | [.path, (.remoteUri // ""), ((.commitSha // "")[0:12])] | @tsv'
+```
 
 Do **not** fetch repository file contents or compare views from `raw.githubusercontent.com`, GitHub compare pages, or other web URLs when the data already exists in the local clone. If a web fetch is blocked, switch to local git commands instead of retrying with another GitHub URL.
 
