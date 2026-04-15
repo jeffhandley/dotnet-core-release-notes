@@ -92,6 +92,19 @@ on:
         SECRET_8: ${{ secrets.COPILOT_PAT_8 }}
         SECRET_9: ${{ secrets.COPILOT_PAT_9 }}
 
+steps:
+  - name: Download release-notes-gen tool
+    uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+    with:
+      name: release-notes-gen-tool
+      path: /tmp/release-notes-gen-tool
+
+  - name: Add release-notes-gen to PATH
+    run: |
+      chmod +x /tmp/release-notes-gen-tool/release-notes-gen
+      echo /tmp/release-notes-gen-tool >> "$GITHUB_PATH"
+      release-notes-gen --help >/dev/null
+
 # Add the pre-activation output of the randomly selected PAT
 jobs:
   install-tool:
@@ -222,42 +235,17 @@ Use the **exact** MCP tool names exposed by the runtime. They are namespaced:
 
 Do **not** call unprefixed names such as `create_pull_request`, `push_to_pull_request_branch`, `add-comment`, `noop`, or `report_incomplete`. If you need a tool, first confirm the exact runtime name from the available tool list and then use that exact name.
 
-The `release-notes-gen` tool is pre-installed and uploaded as a workflow artifact by the `pre_activation` job. **Before doing anything else**, download and configure it:
+The workflow downloads `release-notes-gen` and places it on `PATH` before agentic
+execution starts. Use the command directly:
 
 ```bash
-gh run download $GITHUB_RUN_ID --name release-notes-gen-tool --dir /tmp/release-notes-gen-tool
-chmod +x /tmp/release-notes-gen-tool/release-notes-gen
-export PATH="/tmp/release-notes-gen-tool:$PATH"
 release-notes-gen --help
 ```
 
-Run those as separate commands if needed. Do **not** invoke the tool by absolute path
-when `release-notes-gen` is already on `PATH`.
-
-The artifact contract is fixed for this workflow:
-
-- current run id: `$GITHUB_RUN_ID`
-- artifact name: `release-notes-gen-tool`
-- download mechanism: `gh run download`, not `curl` and not raw Actions artifact APIs
-
-If `gh run download $GITHUB_RUN_ID --name release-notes-gen-tool ...` fails, do **not**
-probe the Actions API, list artifacts with ad hoc shell commands, or inspect runner
-internals to debug it. Go straight to the fallback install path below.
-
-If the download fails, install the tool directly (requires `GITHUB_TOKEN` in the environment):
-
-```bash
-dotnet nuget add source https://nuget.pkg.github.com/richlander/index.json \
-  --name github-richlander \
-  --username github-actions \
-  --password "$GITHUB_TOKEN" \
-  --store-password-in-clear-text
-dotnet tool install ReleaseNotes.Gen \
-  --tool-path /tmp/release-notes-gen-tool
-export PATH="/tmp/release-notes-gen-tool:$PATH"
-```
-
-Confirm the tool is working before proceeding. If neither method works, report the failure using `safeoutputs-report_incomplete`.
+Do **not** download, install, chmod, or reconfigure the tool from inside the agent.
+Do **not** call `gh run download` for it and do **not** install `ReleaseNotes.Gen`
+with `dotnet tool install`. If `release-notes-gen` is missing or fails to execute,
+report the failure with `safeoutputs-report_incomplete`.
 
 ## What to do each run
 

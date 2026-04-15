@@ -83,6 +83,19 @@ on:
         SECRET_8: ${{ secrets.COPILOT_PAT_8 }}
         SECRET_9: ${{ secrets.COPILOT_PAT_9 }}
 
+steps:
+  - name: Download release-notes-gen tool
+    uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+    with:
+      name: release-notes-gen-tool
+      path: /tmp/release-notes-gen-tool
+
+  - name: Add release-notes-gen to PATH
+    run: |
+      chmod +x /tmp/release-notes-gen-tool/release-notes-gen
+      echo /tmp/release-notes-gen-tool >> "$GITHUB_PATH"
+      release-notes-gen --help >/dev/null
+
 jobs:
   install-tool:
     runs-on: ubuntu-latest
@@ -142,24 +155,15 @@ phase and then stop. The selected phase for this run is: `${{ inputs.phase }}`.
 
 ## Tool setup
 
-The `release-notes-gen` tool is preinstalled by the `install-tool` job and uploaded
-as the artifact named `release-notes-gen-tool`. If your selected phase needs it,
-use only these commands:
-
-```bash
-gh run download $GITHUB_RUN_ID --name release-notes-gen-tool --dir /tmp/release-notes-gen-tool
-chmod +x /tmp/release-notes-gen-tool/release-notes-gen
-export PATH="/tmp/release-notes-gen-tool:$PATH"
-release-notes-gen --help
-```
-
-If that artifact path does not work, stop and report the failure. Do **not** try an
-inline install, do **not** probe env vars, and do **not** improvise another setup path.
+The workflow downloads `release-notes-gen` and places it on `PATH` before the agent
+starts. If your selected phase needs it, use `release-notes-gen` directly. Do **not**
+download it again, do **not** install it inline, and do **not** improvise another
+setup path. If the command is missing, stop and report the failure.
 
 ## Phases
 
 1. `boot` — read-only sanity check. Report the repository name, current branch, and HEAD SHA.
-2. `tool` — download the artifact and prove `release-notes-gen --help` runs. Do not invoke the binary by absolute path.
+2. `tool` — prove `release-notes-gen --help` runs. Do not invoke the binary by absolute path.
 3. `github-read` — using GitHub tools only, list the latest three `Write Release Notes` workflow runs in this repo and summarize their status. Do not use shell `gh` and do not fetch web content.
 4. `file-write` — create `/tmp/release-notes-smoke/`, copy `README.md` to `/tmp/release-notes-smoke/README.md`, and list the directory contents.
 5. `changes` — clone `https://github.com/dotnet/dotnet` to `/tmp/dotnet-smoke` and show the first few lines of `main:eng/Versions.props`. Do not generate release notes or write repo files.
