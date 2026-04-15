@@ -108,6 +108,14 @@ steps:
     run: |
       command -v release-notes-gen >/dev/null
 
+  - name: Clone dotnet VMR
+    run: |
+      git clone --filter=blob:none https://github.com/dotnet/dotnet /tmp/dotnet
+
+  - name: Verify dotnet VMR clone
+    run: |
+      git -C /tmp/dotnet rev-parse --verify HEAD >/dev/null
+
 # Add the pre-activation output of the randomly selected PAT
 jobs:
   install-tool:
@@ -264,17 +272,18 @@ results, use the GitHub MCP tools listed above. Do **not** fall back to shell `c
 raw `api.github.com` URLs, unauthenticated REST calls, or Python JSON parsing for
 GitHub data when the MCP tools can answer the question.
 
-The workflow downloads `release-notes-gen` and places it on `PATH` before agentic
-execution starts. You can verify that it is available with:
+The workflow downloads `release-notes-gen`, places it on `PATH`, and clones the
+dotnet VMR to `/tmp/dotnet` before agentic execution starts.
 
-```bash
-command -v release-notes-gen
-```
+- use `release-notes-gen` directly when you need it
+- use the pre-cloned VMR at `/tmp/dotnet`
+- do **not** probe `PATH` with `command -v` or `which` from inside the agent
+- do **not** run `gh run download` or `dotnet tool install` for `ReleaseNotes.Gen`
+- do **not** run `git clone https://github.com/dotnet/dotnet /tmp/dotnet` yourself
+- do **not** background clone work or use `jobs`, `wait`, `sleep`, or polling loops to watch clone progress
 
-Do **not** download, install, chmod, or reconfigure the tool from inside the agent.
-Do **not** call `gh run download` for it and do **not** install `ReleaseNotes.Gen`
-with `dotnet tool install`. If `release-notes-gen` is missing or fails to execute,
-report the failure with `report_incomplete`.
+If `release-notes-gen` is missing or `/tmp/dotnet` is absent or unusable, report the
+failure with `report_incomplete`.
 
 ## What to do each run
 
@@ -294,7 +303,6 @@ The shipped preview number is the **floor**. Everything above it may need work.
 #### b. What's building on main (VMR)
 
 ```bash
-git clone --filter=blob:none https://github.com/dotnet/dotnet /tmp/dotnet
 git -C /tmp/dotnet show main:eng/Versions.props | grep -E 'PreReleaseVersionLabel|PreReleaseVersionIteration'
 ```
 
