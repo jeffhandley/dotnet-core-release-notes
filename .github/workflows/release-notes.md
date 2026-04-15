@@ -232,7 +232,20 @@ Do **not** fetch repository file contents or compare views from `raw.githubuserc
 ### Tool naming in this runtime
 
 Use the **exact** MCP tool names exposed by the runtime. In this workflow, the
-safe-output tool names are **not prefixed**:
+tool names are **not prefixed**.
+
+For GitHub reads, use the runtime names directly. Common examples in this workflow:
+
+- `list_pull_requests`
+- `search_pull_requests`
+- `pull_request_read`
+- `list_issues`
+- `issue_read`
+- `get_file_contents`
+- `search_issues`
+- `search_code`
+
+For safe outputs, use:
 
 - `create_pull_request`
 - `push_to_pull_request_branch`
@@ -243,8 +256,13 @@ safe-output tool names are **not prefixed**:
 - `noop`
 
 Do **not** invent a `safeoutputs-` prefix. Call the safe-output tools by the exact
-names above. For GitHub reads, also use the exact tool names shown in the runtime
-tool list rather than inventing a prefix.
+names above. Do **not** invent a `github-` prefix either. Call GitHub read tools by
+their exact runtime names.
+
+If you need to read GitHub PRs, issues, comments, branches, files, or search
+results, use the GitHub MCP tools listed above. Do **not** fall back to shell `curl`,
+raw `api.github.com` URLs, unauthenticated REST calls, or Python JSON parsing for
+GitHub data when the MCP tools can answer the question.
 
 The workflow downloads `release-notes-gen` and places it on `PATH` before agentic
 execution starts. You can verify that it is available with:
