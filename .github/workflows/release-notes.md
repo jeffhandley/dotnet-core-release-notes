@@ -99,10 +99,13 @@ steps:
       name: release-notes-gen-tool
       path: /tmp/release-notes-gen-tool
 
-  - name: Add release-notes-gen to PATH
+  - name: Prepare release-notes-gen
     run: |
       chmod +x /tmp/release-notes-gen-tool/release-notes-gen
       echo /tmp/release-notes-gen-tool >> "$GITHUB_PATH"
+
+  - name: Verify release-notes-gen is available
+    run: |
       release-notes-gen --help >/dev/null
 
 # Add the pre-activation output of the randomly selected PAT
