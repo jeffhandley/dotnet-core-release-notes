@@ -15,8 +15,6 @@ network:
     - defaults
     - dotnet
 tools:
-  github:
-    toolsets: [issues, pull_requests, repos, search]
   bash:
     - dotnet
     - gh
@@ -99,6 +97,26 @@ steps:
     run: |
       command -v release-notes-gen >/dev/null
 
+  - name: Clone dotnet VMR
+    run: |
+      git clone --filter=blob:none https://github.com/dotnet/dotnet /tmp/dotnet
+
+  - name: Verify dotnet VMR clone
+    run: |
+      git -C /tmp/dotnet rev-parse --verify HEAD >/dev/null
+
+  - name: Preload smoke workflow context
+    env:
+      GH_TOKEN: ${{ github.token }}
+    run: |
+      mkdir -p /tmp/gh-aw/agent
+      gh run list \
+        --repo "$GITHUB_REPOSITORY" \
+        --workflow "Write Release Notes" \
+        --limit 3 \
+        --json databaseId,displayTitle,event,headBranch,status,conclusion,createdAt,url \
+        > /tmp/gh-aw/agent/write-release-notes-runs.json
+
 jobs:
   install-tool:
     runs-on: ubuntu-latest
@@ -152,29 +170,24 @@ phase and then stop. The selected phase for this run is: `${{ inputs.phase }}`.
 - Never use shell job-control built-ins such as `jobs`, `wait`, or backgrounding tricks.
 - Prefer one simple shell command per tool call. Avoid `&&`, shell loops, and `2>&1`
   unless they are absolutely required.
-- Use GitHub tools for GitHub data. Do not fetch GitHub web pages or raw API URLs.
+- Use the preloaded local context files for external data. Do not fetch GitHub web pages or raw API URLs.
 - Do not create branches, commits, pull requests, or comments.
 - Do not modify files in this repository. If you need scratch space, use `/tmp/release-notes-smoke/` only.
 
 ## Tool setup
 
-The workflow downloads `release-notes-gen` and places it on `PATH` before the agent
-starts. If your selected phase needs it, use it directly from `PATH`. Do **not**
-download it again, do **not** install it inline, and do **not** improvise another
-setup path. If the command is missing, stop and report the failure.
-
-For GitHub reads in this workflow, use the GitHub MCP tool names directly. Common
-examples are `list_pull_requests`, `search_pull_requests`, `pull_request_read`,
-`list_issues`, and `issue_read`. Do **not** invent a `github-` prefix and do
-**not** fall back to shell `curl`, raw `api.github.com` URLs, or Python parsing
-for GitHub data.
+The workflow downloads `release-notes-gen`, places it on `PATH`, clones the VMR to
+`/tmp/dotnet`, and writes the latest three `Write Release Notes` workflow runs to
+`/tmp/gh-aw/agent/write-release-notes-runs.json` before the agent starts. Use those
+preloaded resources directly. Do **not** download them again, do **not** clone the
+VMR yourself, and do **not** improvise another setup path.
 
 ## Phases
 
 1. `boot` — read-only sanity check. Report the repository name, current branch, and HEAD SHA.
 2. `tool` — prove `command -v release-notes-gen` resolves the tool on `PATH`. Do not invoke the binary by absolute path.
-3. `github-read` — using GitHub MCP tools only, list the latest three `Write Release Notes` workflow runs in this repo and summarize their status. Use the actual runtime tool names (for example `list_pull_requests` / `pull_request_read` style names), not invented prefixes. Do not use shell `gh`, `curl`, web content, or Python.
+3. `github-read` — read `/tmp/gh-aw/agent/write-release-notes-runs.json` and summarize the latest three `Write Release Notes` workflow runs. Do not use shell `gh`, `curl`, web content, or Python.
 4. `file-write` — create `/tmp/release-notes-smoke/`, copy `README.md` to `/tmp/release-notes-smoke/README.md`, and list the directory contents.
-5. `changes` — clone `https://github.com/dotnet/dotnet` to `/tmp/dotnet-smoke` and show the first few lines of `main:eng/Versions.props`. Do not generate release notes or write repo files.
+5. `changes` — show the first few lines of `main:eng/Versions.props` from the pre-cloned `/tmp/dotnet`. Do not generate release notes or write repo files.
 
 Return a short result for the selected phase only.

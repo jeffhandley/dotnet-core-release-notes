@@ -28,8 +28,6 @@ safe-outputs:
     max: 20
     target: "*"
 tools:
-  github:
-    toolsets: [issues, pull_requests, repos, search]
   bash:
     - dnx
     - dotnet
@@ -116,7 +114,166 @@ steps:
     run: |
       git -C /tmp/dotnet rev-parse --verify HEAD >/dev/null
 
-# Add the pre-activation output of the randomly selected PAT
+  - name: Configure git credentials for context preload
+    env:
+      REPO_NAME: ${{ github.repository }}
+      SERVER_URL: ${{ github.server_url }}
+      GITHUB_TOKEN: ${{ github.token }}
+    run: |
+      SERVER_URL_STRIPPED="${SERVER_URL#https://}"
+      git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@${SERVER_URL_STRIPPED}/${REPO_NAME}.git"
+
+  - name: Preload release-notes GitHub context
+    env:
+      GH_TOKEN: ${{ github.token }}
+    run: |
+      set -euo pipefail
+      mkdir -p /tmp/gh-aw/agent/pr-comments /tmp/gh-aw/agent/publish
+
+      gh pr list \
+        --repo "$GITHUB_REPOSITORY" \
+        --search "[release-notes] in:title" \
+        --state all \
+        --limit 100 \
+        --json number,title,body,headRefName,baseRefName,state,isDraft,url,updatedAt,author \
+        > /tmp/gh-aw/agent/release-notes-prs.json
+
+      : > /tmp/gh-aw/agent/release-notes-branches.txt
+      while IFS= read -r ref; do
+        [ -n "$ref" ] || continue
+        branch="${ref#refs/heads/}"
+        git fetch --no-tags origin "${ref}:refs/remotes/origin/${branch}"
+        printf 'origin/%s\n' "$branch" >> /tmp/gh-aw/agent/release-notes-branches.txt
+      done < <(git ls-remote --heads origin 'release-notes/*' | awk '{print $2}')
+
+      jq -r '.[] | select(.state == "OPEN") | [.number] | @tsv' /tmp/gh-aw/agent/release-notes-prs.json |
+      while IFS=$'\t' read -r pr; do
+        gh api "repos/$GITHUB_REPOSITORY/issues/$pr/comments?per_page=100" > "/tmp/gh-aw/agent/pr-comments/${pr}-issue-comments.json"
+        gh api "repos/$GITHUB_REPOSITORY/pulls/$pr/comments?per_page=100" > "/tmp/gh-aw/agent/pr-comments/${pr}-review-comments.json"
+        gh api "repos/$GITHUB_REPOSITORY/pulls/$pr/reviews?per_page=100" > "/tmp/gh-aw/agent/pr-comments/${pr}-reviews.json"
+      done
+
+      jq -n \
+        --arg prs "/tmp/gh-aw/agent/release-notes-prs.json" \
+        --arg branches "/tmp/gh-aw/agent/release-notes-branches.txt" \
+        --arg comment_dir "/tmp/gh-aw/agent/pr-comments" \
+        --arg publish_dir "/tmp/gh-aw/agent/publish" \
+        '{
+          release_notes_prs: $prs,
+          release_notes_branches: $branches,
+          pr_comment_directory: $comment_dir,
+          publish_directory: $publish_dir
+        }' > /tmp/gh-aw/agent/context-index.json
+
+post-steps:
+  - name: Translate publish manifests to safe outputs
+    env:
+      GH_AW_SAFE_OUTPUTS: ${{ steps.set-runtime-paths.outputs.GH_AW_SAFE_OUTPUTS }}
+    run: |
+      set -euo pipefail
+      manifest_dir=/tmp/gh-aw/agent/publish
+      prs_json=/tmp/gh-aw/agent/release-notes-prs.json
+      output_file="${GH_AW_SAFE_OUTPUTS}"
+
+      mkdir -p /tmp/gh-aw
+      : > "$output_file"
+
+      if [ ! -d "$manifest_dir" ]; then
+        echo "No publish manifests were written"
+        exit 0
+      fi
+
+      shopt -s nullglob
+      manifests=("$manifest_dir"/*.json)
+      if [ ${#manifests[@]} -eq 0 ]; then
+        echo "No publish manifests were written"
+        exit 0
+      fi
+
+      for manifest in "${manifests[@]}"; do
+        branch=$(jq -r '.branch // empty' "$manifest")
+        title=$(jq -r '.title // empty' "$manifest")
+        body=$(jq -r '.body // empty' "$manifest")
+        comment=$(jq -r '.comment // empty' "$manifest")
+
+        if [ -z "$branch" ]; then
+          echo "Publish manifest is missing branch: $manifest" >&2
+          exit 1
+        fi
+
+        if ! git show-ref --verify --quiet "refs/heads/$branch"; then
+          echo "Publish manifest references missing local branch: $branch" >&2
+          exit 1
+        fi
+
+        safe_branch=$(printf '%s' "$branch" | tr '/[:space:]' '__')
+        bundle_path="/tmp/gh-aw/aw-${safe_branch}.bundle"
+        rm -f "$bundle_path"
+        git bundle create "$bundle_path" "refs/heads/$branch"
+
+        open_pr=$(jq -c --arg branch "$branch" '[.[] | select(.headRefName == $branch and .state == "OPEN")] | first' "$prs_json")
+        non_open_pr=$(jq -c --arg branch "$branch" '[.[] | select(.headRefName == $branch and .state != "OPEN")] | first' "$prs_json")
+
+        if [ "$open_pr" != "null" ]; then
+          pr_number=$(jq -r '.number' <<<"$open_pr")
+          ahead_count=$(git rev-list --count "origin/$branch..$branch" 2>/dev/null || echo 0)
+
+          if [ "$ahead_count" -gt 0 ]; then
+            jq -cn \
+              --arg branch "$branch" \
+              --arg bundle_path "$bundle_path" \
+              --arg message "${comment:-Updated release notes content.}" \
+              --argjson pull_request_number "$pr_number" \
+              '{
+                type: "push_to_pull_request_branch",
+                branch: $branch,
+                bundle_path: $bundle_path,
+                message: $message,
+                pull_request_number: $pull_request_number
+              }' >> "$output_file"
+            printf '\n' >> "$output_file"
+          fi
+
+          if [ -n "$comment" ]; then
+            jq -cn \
+              --arg body "$comment" \
+              --argjson item_number "$pr_number" \
+              '{
+                type: "add_comment",
+                body: $body,
+                item_number: $item_number
+              }' >> "$output_file"
+            printf '\n' >> "$output_file"
+          fi
+
+          continue
+        fi
+
+        if [ "$non_open_pr" != "null" ]; then
+          state=$(jq -r '.state' <<<"$non_open_pr")
+          echo "Refusing to create a replacement PR for $branch because a non-open PR already exists ($state)" >&2
+          exit 1
+        fi
+
+        if [ -z "$title" ] || [ -z "$body" ]; then
+          echo "New PR manifest must include title and body: $manifest" >&2
+          exit 1
+        fi
+
+        jq -cn \
+          --arg branch "$branch" \
+          --arg bundle_path "$bundle_path" \
+          --arg title "$title" \
+          --arg body "$body" \
+          '{
+            type: "create_pull_request",
+            branch: $branch,
+            bundle_path: $bundle_path,
+            title: $title,
+            body: $body
+          }' >> "$output_file"
+        printf '\n' >> "$output_file"
+      done
 jobs:
   install-tool:
     runs-on: ubuntu-latest
@@ -149,9 +306,6 @@ jobs:
   pre-activation:
     outputs:
       copilot_pat_number: ${{ steps.select-copilot-pat.outputs.copilot_pat_number }}
-
-# Override the COPILOT_GITHUB_TOKEN expression used in the activation job
-# Consume the PAT number from the pre-activation step and select the corresponding secret
 engine:
   id: copilot
   env:
@@ -160,6 +314,7 @@ engine:
     COPILOT_GITHUB_TOKEN: ${{ case(needs.pre_activation.outputs.copilot_pat_number == '0', secrets.COPILOT_PAT_0, needs.pre_activation.outputs.copilot_pat_number == '1', secrets.COPILOT_PAT_1, needs.pre_activation.outputs.copilot_pat_number == '2', secrets.COPILOT_PAT_2, needs.pre_activation.outputs.copilot_pat_number == '3', secrets.COPILOT_PAT_3, needs.pre_activation.outputs.copilot_pat_number == '4', secrets.COPILOT_PAT_4, needs.pre_activation.outputs.copilot_pat_number == '5', secrets.COPILOT_PAT_5, needs.pre_activation.outputs.copilot_pat_number == '6', secrets.COPILOT_PAT_6, needs.pre_activation.outputs.copilot_pat_number == '7', secrets.COPILOT_PAT_7, needs.pre_activation.outputs.copilot_pat_number == '8', secrets.COPILOT_PAT_8, needs.pre_activation.outputs.copilot_pat_number == '9', secrets.COPILOT_PAT_9, secrets.COPILOT_GITHUB_TOKEN) }}
 ---
 
+<!-- markdownlint-disable-next-line MD025 -->
 # Write Release Notes
 
 You maintain release notes for .NET preview, RC, and GA releases in this repository (dotnet/core), running on a schedule to frequently identify changes in the upcoming releases. This is a **multi-master live system** — humans edit branches and leave PR comments at any time. You must respect their changes and engage with their feedback.
@@ -207,10 +362,10 @@ Read these files and skills for detailed guidance:
 ## Tool setup
 
 The workflow shell is allowlisted. Stick to the commands declared in the frontmatter
-above plus the `write` tool. Use the GitHub tool for repository, PR, issue, and
-workflow queries whenever possible. Avoid Python or other ad hoc interpreters,
-env-var probing loops, raw web/API fetches for GitHub data, shell job-control
-built-ins such as `jobs` and `wait`, and unnecessary command chains or redirections.
+above plus the `write` tool. Prefer the local files and git state the workflow
+prepared for you. Avoid Python or other ad hoc interpreters, env-var probing loops,
+raw web/API fetches for GitHub data, shell job-control built-ins such as `jobs`
+and `wait`, and unnecessary command chains or redirections.
 
 In particular:
 
@@ -218,8 +373,8 @@ In particular:
 - do **not** inspect `/tmp/gh-aw`, `/tmp/gh-aw/mcp-config`, or other runner internals to discover tool names or configuration; rely on the runtime tool list and the documented tool names in this prompt
 - do **not** `git checkout` files from `/tmp/dotnet` into the working tree just to read them; use `git show <ref>:<path>` instead
 - do **not** scan the runner filesystem looking for preinstalled tools when the workflow already told you where the artifact is downloaded and what binary name to run
-- do **not** use `curl` or raw GitHub REST endpoints for workflow runs, artifacts, PRs, comments, or repository contents; use `gh` or the GitHub MCP tools instead
-- do **not** inspect environment variables to hunt for tokens, credentials, or auth state; assume `gh` and the GitHub MCP tools are the supported authenticated interfaces in this workflow
+- do **not** use `curl` or raw GitHub REST endpoints for workflow runs, artifacts, PRs, comments, or repository contents; the workflow already preloaded the release-notes GitHub context you need
+- do **not** inspect environment variables to hunt for tokens, credentials, or auth state; assume the deterministic preloaded files and `gh` shell are the supported interfaces in this workflow
 
 For VMR content, use the **local git checkout** you cloned into `/tmp/dotnet` as the source of truth for repository files and ref comparisons:
 
@@ -237,53 +392,39 @@ git -C /tmp/dotnet show main:src/source-manifest.json | \
 
 Do **not** fetch repository file contents or compare views from `raw.githubusercontent.com`, GitHub compare pages, or other web URLs when the data already exists in the local clone. If a web fetch is blocked, switch to local git commands instead of retrying with another GitHub URL.
 
-### Tool naming in this runtime
-
-Use the **exact** MCP tool names exposed by the runtime. In this workflow, the
-tool names are **not prefixed**.
-
-For GitHub reads, use the runtime names directly. Common examples in this workflow:
-
-- `list_pull_requests`
-- `search_pull_requests`
-- `pull_request_read`
-- `list_issues`
-- `issue_read`
-- `get_file_contents`
-- `search_issues`
-- `search_code`
-
-For safe outputs, use:
-
-- `create_pull_request`
-- `push_to_pull_request_branch`
-- `add_comment`
-- `missing_tool`
-- `missing_data`
-- `report_incomplete`
-- `noop`
-
-Do **not** invent a `safeoutputs-` prefix. Call the safe-output tools by the exact
-names above. Do **not** invent a `github-` prefix either. Call GitHub read tools by
-their exact runtime names.
-
-If you need to read GitHub PRs, issues, comments, branches, files, or search
-results, use the GitHub MCP tools listed above. Do **not** fall back to shell `curl`,
-raw `api.github.com` URLs, unauthenticated REST calls, or Python JSON parsing for
-GitHub data when the MCP tools can answer the question.
+### Preloaded context in this workflow
 
 The workflow downloads `release-notes-gen`, places it on `PATH`, and clones the
-dotnet VMR to `/tmp/dotnet` before agentic execution starts.
+dotnet VMR to `/tmp/dotnet` before agentic execution starts. It also preloads
+release-notes repository context into local files:
+
+- `/tmp/gh-aw/agent/context-index.json`
+- `/tmp/gh-aw/agent/release-notes-prs.json`
+- `/tmp/gh-aw/agent/release-notes-branches.txt`
+- `/tmp/gh-aw/agent/pr-comments/<pr>-issue-comments.json`
+- `/tmp/gh-aw/agent/pr-comments/<pr>-review-comments.json`
+- `/tmp/gh-aw/agent/pr-comments/<pr>-reviews.json`
+- `/tmp/gh-aw/agent/publish/` — write publish manifests here; the workflow converts them into safe outputs after you finish
 
 - use `release-notes-gen` directly when you need it
 - use the pre-cloned VMR at `/tmp/dotnet`
+- read `/tmp/gh-aw/agent/context-index.json` first so you know where the preloaded
+  release-notes PR, branch, and comment data lives
+- use the preloaded release-notes PR/comment files instead of GitHub MCP reads for
+  this repository
+- use shell `gh` only for targeted cross-repo follow-up that the workflow could not
+  preload, such as revert searches in component repos
 - do **not** probe `PATH` with `command -v` or `which` from inside the agent
 - do **not** run `gh run download` or `dotnet tool install` for `ReleaseNotes.Gen`
 - do **not** run `git clone https://github.com/dotnet/dotnet /tmp/dotnet` yourself
 - do **not** background clone work or use `jobs`, `wait`, `sleep`, or polling loops to watch clone progress
+- do **not** call GitHub MCP tools or safe-output tools directly in this workflow;
+  your job is to prepare local edits and publish manifests, not to fetch or publish
+  through MCP
 
-If `release-notes-gen` is missing or `/tmp/dotnet` is absent or unusable, report the
-failure with `report_incomplete`.
+If `release-notes-gen`, `/tmp/dotnet`, or the preloaded context files are absent or
+unusable, stop before making repo changes and explain the missing prerequisite in
+your final response.
 
 ## What to do each run
 
@@ -325,7 +466,7 @@ For each iteration N where `latest_shipped < N <= main_iteration`:
 1. **Check for a VMR tag** (`v11.0.0-preview.N.*`) — if found, this milestone has been finalized
 2. **Check for a VMR release branch** (`release/11.0.1xx-previewN`) — if found, this milestone is stabilizing
 3. **Check for existing release notes directory** in this repo (`release-notes/11.0/preview/previewN/`)
-4. **Check for an existing PR** on this repo (search for `[release-notes]` PRs matching the milestone)
+4. **Check for an existing PR** on this repo by reading `/tmp/gh-aw/agent/release-notes-prs.json`
 
 Each milestone gets its own branch and PR on this repo.
 
@@ -460,27 +601,33 @@ Using `features.json`, `changes.json`, and the reference documents:
 
 Some features need content that only humans can provide — benchmark data, definitive code samples, or domain-specific context. When you identify a feature that would benefit from this:
 
-- **Benchmark data** — if a JIT or performance feature would be better told with numbers, post a comment tagging the PR author asking for benchmark results. Write a placeholder section noting the optimization and what it improves, and flag it as needing data.
-- **Code samples** — if you can't confidently generate a correct, idiomatic sample (e.g., complex API interactions, platform-specific patterns), ask the feature author for one. A description without a sample is better than an incorrect sample.
-- **Domain expertise** — if a feature's significance isn't clear from the PR title and diff alone, ask. "Can you describe the user scenario this improves?" is a valid comment.
+- **Benchmark data** — if a JIT or performance feature would be better told with numbers, write a placeholder section noting the optimization and what it improves, and flag in the manifest `body` or `comment` that benchmark data is still needed
+- **Code samples** — if you can't confidently generate a correct, idiomatic sample (e.g., complex API interactions, platform-specific patterns), note in the manifest that a maintainer-provided sample would improve the section. A description without a sample is better than an incorrect sample.
+- **Domain expertise** — if a feature's significance isn't clear from the PR title and diff alone, note the open question in the manifest so humans can follow up
 
-Frame these as suggestions, not demands. For example: "This JIT improvement in loop unrolling looks significant. Benchmark data showing the before/after would help tell the story — could you share numbers or point me to a benchmark?"
+Frame these as suggestions, not demands. For example: "This JIT improvement in loop unrolling looks significant. Benchmark data showing the before/after would help tell the story."
 
 #### g. Read and respond to PR comments
 
-Check all comments and review threads on the PR since the last run:
+For each open release-notes PR, the workflow preloaded:
 
-- **Actionable feedback** (e.g., "add detail about X", "this is wrong", "wrong component") → make the change and reply confirming
+- issue comments in `/tmp/gh-aw/agent/pr-comments/<pr>-issue-comments.json`
+- review comments in `/tmp/gh-aw/agent/pr-comments/<pr>-review-comments.json`
+- reviews in `/tmp/gh-aw/agent/pr-comments/<pr>-reviews.json`
+
+Check those files for all comments and review feedback since the last run:
+
+- **Actionable feedback** (e.g., "add detail about X", "this is wrong", "wrong component") → make the change and capture the reply you want posted in the manifest `comment`
 - **Questions** (e.g., "is this the right framing?") → answer if you can, or flag it for a human
-- **Disagreements** (e.g., "I don't think this shipped") → cross-check against `changes.json`. If the commenter is right, fix it. If unclear, reply explaining what you found and ask for clarification
+- **Disagreements** (e.g., "I don't think this shipped") → cross-check against `changes.json`. If the commenter is right, fix it. If unclear, explain what you found and ask for clarification in the manifest `comment`
 - **Resolved threads** → skip
 
-Pay special attention to comments that are clearly addressed to the workflow or agent — for example comments that mention the automation directly, ask it to make a change, ask why it chose some wording, or point out a mistake it introduced. Do not silently consume those. Reply after you act, or reply explaining why you did not act.
+Pay special attention to comments that are clearly addressed to the workflow or agent — for example comments that mention the automation directly, ask it to make a change, ask why it chose some wording, or point out a mistake it introduced. Do not silently consume those. If you act, include a reply summary in the manifest `comment` field. If you do not act, explain why in that same field.
 
-Comments may also direct the agent to make **branch changes** — for example "please add this missing feature", "rewrite this section", "keep the current structure but update the intro", "drop this heading", or "preserve the human wording in this paragraph". Treat those as first-class instructions for the next branch update. Apply them on the release branch when they are clear and consistent with shipped content, then reply summarizing what changed. If the request conflicts with release fidelity or is ambiguous, explain the conflict and ask for clarification instead of ignoring it.
+Comments may also direct the agent to make **branch changes** — for example "please add this missing feature", "rewrite this section", "keep the current structure but update the intro", "drop this heading", or "preserve the human wording in this paragraph". Treat those as first-class instructions for the next branch update. Apply them on the release branch when they are clear and consistent with shipped content, then summarize what changed in the manifest `comment`. If the request conflicts with release fidelity or is ambiguous, explain the conflict there instead of ignoring it.
 
-When unsure about a human's intent, ask. Use `add_comment` to reply. This is a
-conversation, not a one-shot generation.
+When unsure about a human's intent, preserve the text and note the question in the
+manifest `comment`. This is a conversation, not a one-shot generation.
 
 #### h. Run the final multi-model review
 
@@ -509,10 +656,10 @@ Ask for file + heading + issue + suggested rewrite, not generic preference. Then
 - keep a human-readable note of any major disagreement
 - avoid "majority vote" thinking when it conflicts with fidelity or house style
 
-#### i. Create or update the PR
+#### i. Prepare the publication manifest
 
-- **No PR exists for this release** → create branch `release-notes/11.0-preview4`, commit, then call `create_pull_request` to open the draft PR
-- **PR already exists for this release** → reuse that exact branch, commit the updates, then call `push_to_pull_request_branch` to publish them to the existing branch and use `add_comment` to summarize what changed
+- **No PR exists for this release** → create branch `release-notes/11.0-preview4`, commit your changes locally, then write `/tmp/gh-aw/agent/publish/release-notes-11.0-preview4.json` with `branch`, `title`, and `body`
+- **PR already exists for this release** → reuse that exact branch, commit the updates locally, then write or update the matching manifest with `branch` and a `comment` summarizing what changed; the workflow will reuse the existing PR and post the comment after you finish
 
 Branch identity is release-scoped. Do **not** mint a fresh branch name for a rerun of the same release just because the workflow ran again on a later day.
 
@@ -520,15 +667,18 @@ PR title format: `[release-notes] .NET 11 Preview 4`
 
 PR body should summarize: milestone, number of changes, which component files were written/updated, and any open questions or items needing human review.
 
-This publication step is **required**. A run that edits files for an active milestone is not complete until it has either:
+Manifest example:
 
-- published a new branch/PR with `create_pull_request`, or
-- published updates to an existing PR branch with `push_to_pull_request_branch`
+```json
+{
+  "branch": "release-notes/11.0-preview4",
+  "title": "[release-notes] .NET 11 Preview 4",
+  "body": "Draft release notes for .NET 11 Preview 4.\n\n- changes.json regenerated from v11.0.0-preview.3 to the current Preview 4 head\n- Updated runtime.md and aspnetcore.md\n- Open question: benchmark data still needed for the JIT section",
+  "comment": "Updated changes.json, refreshed features.json scores, preserved the human-written intro, and addressed the latest review feedback."
+}
+```
 
-If you have local commits for an active milestone but cannot publish them because a
-required safe-output tool is unavailable or fails, do **not** emit `noop`.
-Instead, call `report_incomplete` and explain exactly what is waiting to be
-published.
+This publication manifest is **required**. A run that edits files for an active milestone is not complete until it has written a manifest for every changed release-notes branch so the workflow can publish it after agent execution.
 
 ### 3. Handle transitions
 
@@ -542,7 +692,7 @@ Things change between runs. Handle these gracefully:
 
 ### 4. Daily summary
 
-At the end of each run, leave a comment on each active PR noting:
+At the end of each run, include in the manifest `comment` for each updated PR:
 
 - What was regenerated or updated
 - How many new changes appeared since yesterday
