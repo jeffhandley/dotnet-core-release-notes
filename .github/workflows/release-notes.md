@@ -231,12 +231,20 @@ Do **not** fetch repository file contents or compare views from `raw.githubuserc
 
 ### Tool naming in this runtime
 
-Use the **exact** MCP tool names exposed by the runtime. They are namespaced:
+Use the **exact** MCP tool names exposed by the runtime. In this workflow, the
+safe-output tool names are **not prefixed**:
 
-- GitHub read tools are prefixed with `github-` (for example `github-list_pull_requests`, `github-search_pull_requests`, `github-get_file_contents`)
-- Safe output tools are prefixed with `safeoutputs-` (for example `safeoutputs-create_pull_request`, `safeoutputs-push_to_pull_request_branch`, `safeoutputs-add_comment`, `safeoutputs-noop`, `safeoutputs-missing_tool`, `safeoutputs-missing_data`, `safeoutputs-report_incomplete`)
+- `create_pull_request`
+- `push_to_pull_request_branch`
+- `add_comment`
+- `missing_tool`
+- `missing_data`
+- `report_incomplete`
+- `noop`
 
-Do **not** call unprefixed names such as `create_pull_request`, `push_to_pull_request_branch`, `add-comment`, `noop`, or `report_incomplete`. If you need a tool, first confirm the exact runtime name from the available tool list and then use that exact name.
+Do **not** invent a `safeoutputs-` prefix. Call the safe-output tools by the exact
+names above. For GitHub reads, also use the exact tool names shown in the runtime
+tool list rather than inventing a prefix.
 
 The workflow downloads `release-notes-gen` and places it on `PATH` before agentic
 execution starts. You can verify that it is available with:
@@ -248,7 +256,7 @@ command -v release-notes-gen
 Do **not** download, install, chmod, or reconfigure the tool from inside the agent.
 Do **not** call `gh run download` for it and do **not** install `ReleaseNotes.Gen`
 with `dotnet tool install`. If `release-notes-gen` is missing or fails to execute,
-report the failure with `safeoutputs-report_incomplete`.
+report the failure with `report_incomplete`.
 
 ## What to do each run
 
@@ -445,7 +453,8 @@ Pay special attention to comments that are clearly addressed to the workflow or 
 
 Comments may also direct the agent to make **branch changes** — for example "please add this missing feature", "rewrite this section", "keep the current structure but update the intro", "drop this heading", or "preserve the human wording in this paragraph". Treat those as first-class instructions for the next branch update. Apply them on the release branch when they are clear and consistent with shipped content, then reply summarizing what changed. If the request conflicts with release fidelity or is ambiguous, explain the conflict and ask for clarification instead of ignoring it.
 
-When unsure about a human's intent, ask. Use `safeoutputs-add_comment` to reply. This is a conversation, not a one-shot generation.
+When unsure about a human's intent, ask. Use `add_comment` to reply. This is a
+conversation, not a one-shot generation.
 
 #### h. Run the final multi-model review
 
@@ -476,8 +485,8 @@ Ask for file + heading + issue + suggested rewrite, not generic preference. Then
 
 #### i. Create or update the PR
 
-- **No PR exists for this release** → create branch `release-notes/11.0-preview4`, commit, then call `safeoutputs-create_pull_request` to open the draft PR
-- **PR already exists for this release** → reuse that exact branch, commit the updates, then call `safeoutputs-push_to_pull_request_branch` to publish them to the existing branch and use `safeoutputs-add_comment` to summarize what changed
+- **No PR exists for this release** → create branch `release-notes/11.0-preview4`, commit, then call `create_pull_request` to open the draft PR
+- **PR already exists for this release** → reuse that exact branch, commit the updates, then call `push_to_pull_request_branch` to publish them to the existing branch and use `add_comment` to summarize what changed
 
 Branch identity is release-scoped. Do **not** mint a fresh branch name for a rerun of the same release just because the workflow ran again on a later day.
 
@@ -487,10 +496,13 @@ PR body should summarize: milestone, number of changes, which component files we
 
 This publication step is **required**. A run that edits files for an active milestone is not complete until it has either:
 
-- published a new branch/PR with `safeoutputs-create_pull_request`, or
-- published updates to an existing PR branch with `safeoutputs-push_to_pull_request_branch`
+- published a new branch/PR with `create_pull_request`, or
+- published updates to an existing PR branch with `push_to_pull_request_branch`
 
-If you have local commits for an active milestone but cannot publish them because a required safe output tool is unavailable or fails, do **not** emit `safeoutputs-noop`. Instead, call `safeoutputs-report_incomplete` and explain exactly what is waiting to be published.
+If you have local commits for an active milestone but cannot publish them because a
+required safe-output tool is unavailable or fails, do **not** emit `noop`.
+Instead, call `report_incomplete` and explain exactly what is waiting to be
+published.
 
 ### 3. Handle transitions
 
