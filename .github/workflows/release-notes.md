@@ -106,7 +106,7 @@ steps:
 
   - name: Verify release-notes-gen is available
     run: |
-      release-notes-gen --help >/dev/null
+      command -v release-notes-gen >/dev/null
 
 # Add the pre-activation output of the randomly selected PAT
 jobs:
@@ -239,10 +239,10 @@ Use the **exact** MCP tool names exposed by the runtime. They are namespaced:
 Do **not** call unprefixed names such as `create_pull_request`, `push_to_pull_request_branch`, `add-comment`, `noop`, or `report_incomplete`. If you need a tool, first confirm the exact runtime name from the available tool list and then use that exact name.
 
 The workflow downloads `release-notes-gen` and places it on `PATH` before agentic
-execution starts. Use the command directly:
+execution starts. You can verify that it is available with:
 
 ```bash
-release-notes-gen --help
+command -v release-notes-gen
 ```
 
 Do **not** download, install, chmod, or reconfigure the tool from inside the agent.

@@ -97,7 +97,7 @@ steps:
 
   - name: Verify release-notes-gen is available
     run: |
-      release-notes-gen --help >/dev/null
+      command -v release-notes-gen >/dev/null
 
 jobs:
   install-tool:
@@ -159,14 +159,14 @@ phase and then stop. The selected phase for this run is: `${{ inputs.phase }}`.
 ## Tool setup
 
 The workflow downloads `release-notes-gen` and places it on `PATH` before the agent
-starts. If your selected phase needs it, use `release-notes-gen` directly. Do **not**
+starts. If your selected phase needs it, use it directly from `PATH`. Do **not**
 download it again, do **not** install it inline, and do **not** improvise another
 setup path. If the command is missing, stop and report the failure.
 
 ## Phases
 
 1. `boot` — read-only sanity check. Report the repository name, current branch, and HEAD SHA.
-2. `tool` — prove `release-notes-gen --help` runs. Do not invoke the binary by absolute path.
+2. `tool` — prove `command -v release-notes-gen` resolves the tool on `PATH`. Do not invoke the binary by absolute path.
 3. `github-read` — using GitHub tools only, list the latest three `Write Release Notes` workflow runs in this repo and summarize their status. Do not use shell `gh` and do not fetch web content.
 4. `file-write` — create `/tmp/release-notes-smoke/`, copy `README.md` to `/tmp/release-notes-smoke/README.md`, and list the directory contents.
 5. `changes` — clone `https://github.com/dotnet/dotnet` to `/tmp/dotnet-smoke` and show the first few lines of `main:eng/Versions.props`. Do not generate release notes or write repo files.
