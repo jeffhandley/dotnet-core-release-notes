@@ -1,4 +1,4 @@
-# gh-aw-metadata: {"schema_version":"v3","frontmatter_hash":"c7c97171963f19fef7d22ee2e9d6246fdc1ea2d305cc00c24e607aa30c208a4d","compiler_version":"v0.67.1","strict":true,"agent_id":"copilot"}
+# gh-aw-metadata: {"schema_version":"v3","frontmatter_hash":"e8c53ff74a7ade1f4abdf737a6b4f90087057811cfbf9b0faf0d41a11a9a9c0c","compiler_version":"v0.67.1","strict":true,"agent_id":"copilot"}
 #    ___                   _   _      
 #   / _ \                 | | (_)     
 #  | |_| | __ _  ___ _ __ | |_ _  ___ 
@@ -193,20 +193,20 @@ jobs:
         run: |
           bash ${RUNNER_TEMP}/gh-aw/actions/create_prompt_first.sh
           {
-          cat << 'GH_AW_PROMPT_0611c7d3a77dae0a_EOF'
+          cat << 'GH_AW_PROMPT_fdbb25fac3f27601_EOF'
           <system>
-          GH_AW_PROMPT_0611c7d3a77dae0a_EOF
+          GH_AW_PROMPT_fdbb25fac3f27601_EOF
           cat "${RUNNER_TEMP}/gh-aw/prompts/xpia.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/temp_folder_prompt.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/markdown.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/safe_outputs_prompt.md"
-          cat << 'GH_AW_PROMPT_0611c7d3a77dae0a_EOF'
+          cat << 'GH_AW_PROMPT_fdbb25fac3f27601_EOF'
           <safe-output-tools>
           Tools: add_comment(max:20), create_pull_request(max:5), push_to_pull_request_branch(max:5), missing_tool, missing_data, noop
-          GH_AW_PROMPT_0611c7d3a77dae0a_EOF
+          GH_AW_PROMPT_fdbb25fac3f27601_EOF
           cat "${RUNNER_TEMP}/gh-aw/prompts/safe_outputs_create_pull_request.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/safe_outputs_push_to_pr_branch.md"
-          cat << 'GH_AW_PROMPT_0611c7d3a77dae0a_EOF'
+          cat << 'GH_AW_PROMPT_fdbb25fac3f27601_EOF'
           </safe-output-tools>
           <github-context>
           The following GitHub context information is available for this workflow:
@@ -236,12 +236,12 @@ jobs:
           {{/if}}
           </github-context>
           
-          GH_AW_PROMPT_0611c7d3a77dae0a_EOF
+          GH_AW_PROMPT_fdbb25fac3f27601_EOF
           cat "${RUNNER_TEMP}/gh-aw/prompts/github_mcp_tools_with_safeoutputs_prompt.md"
-          cat << 'GH_AW_PROMPT_0611c7d3a77dae0a_EOF'
+          cat << 'GH_AW_PROMPT_fdbb25fac3f27601_EOF'
           </system>
           {{#runtime-import .github/workflows/release-notes.md}}
-          GH_AW_PROMPT_0611c7d3a77dae0a_EOF
+          GH_AW_PROMPT_fdbb25fac3f27601_EOF
           } > "$GH_AW_PROMPT"
       - name: Interpolate variables and render templates
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
@@ -445,12 +445,12 @@ jobs:
           mkdir -p ${RUNNER_TEMP}/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_963e7a176999cc61_EOF'
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_47f615a54a2af3c1_EOF'
           {"add_comment":{"max":20,"target":"*"},"create_pull_request":{"draft":true,"labels":["area-release-notes","automation"],"max":5,"max_patch_size":1024,"protected_files":["package.json","bun.lockb","bunfig.toml","deno.json","deno.jsonc","deno.lock","global.json","NuGet.Config","Directory.Packages.props","mix.exs","mix.lock","go.mod","go.sum","stack.yaml","stack.yaml.lock","pom.xml","build.gradle","build.gradle.kts","settings.gradle","settings.gradle.kts","gradle.properties","package-lock.json","yarn.lock","pnpm-lock.yaml","npm-shrinkwrap.json","requirements.txt","Pipfile","Pipfile.lock","pyproject.toml","setup.py","setup.cfg","Gemfile","Gemfile.lock","uv.lock","CODEOWNERS"],"protected_path_prefixes":[".github/",".agents/"],"title_prefix":"[release-notes] "},"create_report_incomplete_issue":{},"missing_data":{},"missing_tool":{},"noop":{"max":1,"report-as-issue":"true"},"push_to_pull_request_branch":{"if_no_changes":"warn","labels":["area-release-notes","automation"],"max":5,"max_patch_size":1024,"protected_files":["package.json","bun.lockb","bunfig.toml","deno.json","deno.jsonc","deno.lock","global.json","NuGet.Config","Directory.Packages.props","mix.exs","mix.lock","go.mod","go.sum","stack.yaml","stack.yaml.lock","pom.xml","build.gradle","build.gradle.kts","settings.gradle","settings.gradle.kts","gradle.properties","package-lock.json","yarn.lock","pnpm-lock.yaml","npm-shrinkwrap.json","requirements.txt","Pipfile","Pipfile.lock","pyproject.toml","setup.py","setup.cfg","Gemfile","Gemfile.lock","uv.lock","CODEOWNERS"],"protected_path_prefixes":[".github/",".agents/"],"title_prefix":"[release-notes] "},"report_incomplete":{}}
-          GH_AW_SAFE_OUTPUTS_CONFIG_963e7a176999cc61_EOF
+          GH_AW_SAFE_OUTPUTS_CONFIG_47f615a54a2af3c1_EOF
       - name: Write Safe Outputs Tools
         run: |
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/tools_meta.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_META_1db41c4817ef680c_EOF'
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/tools_meta.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_META_b9d5923e0c7e4d5b_EOF'
           {
             "description_suffixes": {
               "add_comment": " CONSTRAINTS: Maximum 20 comment(s) can be added. Target: *.",
@@ -460,8 +460,8 @@ jobs:
             "repo_params": {},
             "dynamic_tools": []
           }
-          GH_AW_SAFE_OUTPUTS_TOOLS_META_1db41c4817ef680c_EOF
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/validation.json << 'GH_AW_SAFE_OUTPUTS_VALIDATION_eb5edeb6a7bfac9c_EOF'
+          GH_AW_SAFE_OUTPUTS_TOOLS_META_b9d5923e0c7e4d5b_EOF
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/validation.json << 'GH_AW_SAFE_OUTPUTS_VALIDATION_b538a3b6dcdf0c46_EOF'
           {
             "add_comment": {
               "defaultMax": 1,
@@ -611,7 +611,7 @@ jobs:
               }
             }
           }
-          GH_AW_SAFE_OUTPUTS_VALIDATION_eb5edeb6a7bfac9c_EOF
+          GH_AW_SAFE_OUTPUTS_VALIDATION_b538a3b6dcdf0c46_EOF
           node ${RUNNER_TEMP}/gh-aw/actions/generate_safe_outputs_tools.cjs
       - name: Generate Safe Outputs MCP Server Config
         id: safe-outputs-config
@@ -681,7 +681,7 @@ jobs:
           export MCP_GATEWAY_DOCKER_COMMAND='docker run -i --rm --network host -v /var/run/docker.sock:/var/run/docker.sock -e MCP_GATEWAY_PORT -e MCP_GATEWAY_DOMAIN -e MCP_GATEWAY_API_KEY -e MCP_GATEWAY_PAYLOAD_DIR -e MCP_GATEWAY_PAYLOAD_SIZE_THRESHOLD -e DEBUG -e MCP_GATEWAY_LOG_DIR -e GH_AW_MCP_LOG_DIR -e GH_AW_SAFE_OUTPUTS -e GH_AW_SAFE_OUTPUTS_CONFIG_PATH -e GH_AW_SAFE_OUTPUTS_TOOLS_PATH -e GH_AW_ASSETS_BRANCH -e GH_AW_ASSETS_MAX_SIZE_KB -e GH_AW_ASSETS_ALLOWED_EXTS -e DEFAULT_BRANCH -e GITHUB_MCP_SERVER_TOKEN -e GITHUB_MCP_GUARD_MIN_INTEGRITY -e GITHUB_MCP_GUARD_REPOS -e GITHUB_REPOSITORY -e GITHUB_SERVER_URL -e GITHUB_SHA -e GITHUB_WORKSPACE -e GITHUB_TOKEN -e GITHUB_RUN_ID -e GITHUB_RUN_NUMBER -e GITHUB_RUN_ATTEMPT -e GITHUB_JOB -e GITHUB_ACTION -e GITHUB_EVENT_NAME -e GITHUB_EVENT_PATH -e GITHUB_ACTOR -e GITHUB_ACTOR_ID -e GITHUB_TRIGGERING_ACTOR -e GITHUB_WORKFLOW -e GITHUB_WORKFLOW_REF -e GITHUB_WORKFLOW_SHA -e GITHUB_REF -e GITHUB_REF_NAME -e GITHUB_REF_TYPE -e GITHUB_HEAD_REF -e GITHUB_BASE_REF -e GH_AW_SAFE_OUTPUTS_PORT -e GH_AW_SAFE_OUTPUTS_API_KEY -v /tmp/gh-aw/mcp-payloads:/tmp/gh-aw/mcp-payloads:rw -v /opt:/opt:ro -v /tmp:/tmp:rw -v '"${GITHUB_WORKSPACE}"':'"${GITHUB_WORKSPACE}"':rw ghcr.io/github/gh-aw-mcpg:v0.2.14'
           
           mkdir -p /home/runner/.copilot
-          cat << GH_AW_MCP_CONFIG_f0b78e55c513dfc3_EOF | bash ${RUNNER_TEMP}/gh-aw/actions/start_mcp_gateway.sh
+          cat << GH_AW_MCP_CONFIG_02959da6b63e2206_EOF | bash ${RUNNER_TEMP}/gh-aw/actions/start_mcp_gateway.sh
           {
             "mcpServers": {
               "github": {
@@ -722,7 +722,7 @@ jobs:
               "payloadDir": "${MCP_GATEWAY_PAYLOAD_DIR}"
             }
           }
-          GH_AW_MCP_CONFIG_f0b78e55c513dfc3_EOF
+          GH_AW_MCP_CONFIG_02959da6b63e2206_EOF
       - name: Download activation artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -973,6 +973,7 @@ jobs:
       - agent
       - detection
       - install-tool
+      - publish_release_notes
       - safe_outputs
     if: always() && (needs.agent.result != 'skipped' || needs.activation.outputs.lockdown_check_failed == 'true')
     runs-on: ubuntu-slim
@@ -1320,6 +1321,129 @@ jobs:
           SECRET_7: ${{ secrets.COPILOT_PAT_7 }}
           SECRET_8: ${{ secrets.COPILOT_PAT_8 }}
           SECRET_9: ${{ secrets.COPILOT_PAT_9 }}
+
+  publish_release_notes:
+    name: Publish release-notes pull requests
+    needs: agent
+    if: always() && needs.agent.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Configure GH_HOST for enterprise compatibility
+        id: ghes-host-config
+        shell: bash
+        run: |
+          # Derive GH_HOST from GITHUB_SERVER_URL so the gh CLI targets the correct
+          # GitHub instance (GHES/GHEC). On github.com this is a harmless no-op.
+          GH_HOST="${GITHUB_SERVER_URL#https://}"
+          GH_HOST="${GH_HOST#http://}"
+          echo "GH_HOST=${GH_HOST}" >> "$GITHUB_ENV"
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download agent artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: agent
+          path: /tmp/gh-aw/
+      - name: Configure git identity
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+      - name: Publish PRs from agent output
+        run: |
+          set -euo pipefail
+          agent_output=/tmp/gh-aw/agent_output.json
+          if [ ! -f "$agent_output" ]; then
+            echo "::notice::No agent_output.json produced by the agent — nothing to publish"
+            exit 0
+          fi
+          items_count=$(jq '.items | length' "$agent_output")
+          if [ "$items_count" -eq 0 ]; then
+            echo "::notice::agent_output.json contained 0 items — nothing to publish"
+            exit 0
+          fi
+          echo "Publishing $items_count item(s) from agent_output.json"
+
+          # Bundles produced by the agent post-step are uploaded with absolute
+          # paths under /tmp/gh-aw/. The download artifact extracts them to
+          # /tmp/gh-aw/<basename>, so resolve by basename.
+          resolve_bundle() {
+            local bundle_path="$1"
+            local local_path="/tmp/gh-aw/$(basename "$bundle_path")"
+            if [ ! -f "$local_path" ]; then
+              echo "::error::Bundle file not found in artifact: $local_path (manifest path was $bundle_path)" >&2
+              return 1
+            fi
+            printf '%s' "$local_path"
+          }
+
+          for i in $(seq 0 $((items_count - 1))); do
+            item=$(jq -c ".items[$i]" "$agent_output")
+            type=$(jq -r '.type' <<<"$item")
+            case "$type" in
+              create_pull_request)
+                branch=$(jq -r '.branch' <<<"$item")
+                title=$(jq -r '.title' <<<"$item")
+                body=$(jq -r '.body' <<<"$item")
+                bundle=$(jq -r '.bundle_path' <<<"$item")
+                bundle_local=$(resolve_bundle "$bundle")
+                echo "→ create_pull_request branch=$branch"
+
+                # Import the branch from the bundle and publish to origin.
+                # Force-with-lease guards against parallel updates of the same branch.
+                git fetch "$bundle_local" "+refs/heads/$branch:refs/heads/$branch"
+                git push origin "refs/heads/$branch:refs/heads/$branch" --force-with-lease
+
+                # Reuse an existing open PR if one already targets this branch;
+                # bail if a closed/merged PR exists (matches the post-step's
+                # earlier guard for replacement PRs).
+                existing=$(gh pr list --head "$branch" --state all --json number,state --jq '.[0]')
+                if [ -n "$existing" ] && [ "$existing" != "null" ]; then
+                  state=$(jq -r '.state' <<<"$existing")
+                  num=$(jq -r '.number' <<<"$existing")
+                  if [ "$state" = "OPEN" ]; then
+                    echo "::notice::PR #$num is already open for $branch — branch updated, no new PR created"
+                  else
+                    echo "::warning::Refusing to create a replacement PR for $branch — existing PR #$num is $state"
+                  fi
+                else
+                  gh pr create --base main --head "$branch" --title "$title" --body "$body" \
+                    --draft --label "area-release-notes" --label "automation"
+                fi
+                ;;
+              push_to_pull_request_branch)
+                branch=$(jq -r '.branch' <<<"$item")
+                bundle=$(jq -r '.bundle_path' <<<"$item")
+                bundle_local=$(resolve_bundle "$bundle")
+                pr_number=$(jq -r '.pull_request_number' <<<"$item")
+                message=$(jq -r '.message // empty' <<<"$item")
+                echo "→ push_to_pull_request_branch branch=$branch pr=$pr_number"
+                git fetch "$bundle_local" "+refs/heads/$branch:refs/heads/$branch"
+                git push origin "refs/heads/$branch:refs/heads/$branch" --force-with-lease
+                if [ -n "$message" ]; then
+                  gh pr comment "$pr_number" --body "$message"
+                fi
+                ;;
+              add_comment)
+                body=$(jq -r '.body' <<<"$item")
+                num=$(jq -r '.item_number' <<<"$item")
+                echo "→ add_comment item=$num"
+                gh pr comment "$num" --body "$body"
+                ;;
+              *)
+                echo "::warning::Unknown agent_output item type: $type"
+                ;;
+            esac
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   safe_outputs:
     needs:

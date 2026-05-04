@@ -324,6 +324,122 @@ jobs:
           name: release-notes-gen-tool
           path: ${{ runner.temp }}/release-notes-gen-tool
 
+  publish_release_notes:
+    name: Publish release-notes pull requests
+    needs: [agent]
+    if: always() && needs.agent.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
+
+      - name: Download agent artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: agent
+          path: /tmp/gh-aw/
+
+      - name: Configure git identity
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+
+      - name: Publish PRs from agent output
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          agent_output=/tmp/gh-aw/agent_output.json
+          if [ ! -f "$agent_output" ]; then
+            echo "::notice::No agent_output.json produced by the agent — nothing to publish"
+            exit 0
+          fi
+          items_count=$(jq '.items | length' "$agent_output")
+          if [ "$items_count" -eq 0 ]; then
+            echo "::notice::agent_output.json contained 0 items — nothing to publish"
+            exit 0
+          fi
+          echo "Publishing $items_count item(s) from agent_output.json"
+
+          # Bundles produced by the agent post-step are uploaded with absolute
+          # paths under /tmp/gh-aw/. The download artifact extracts them to
+          # /tmp/gh-aw/<basename>, so resolve by basename.
+          resolve_bundle() {
+            local bundle_path="$1"
+            local local_path="/tmp/gh-aw/$(basename "$bundle_path")"
+            if [ ! -f "$local_path" ]; then
+              echo "::error::Bundle file not found in artifact: $local_path (manifest path was $bundle_path)" >&2
+              return 1
+            fi
+            printf '%s' "$local_path"
+          }
+
+          for i in $(seq 0 $((items_count - 1))); do
+            item=$(jq -c ".items[$i]" "$agent_output")
+            type=$(jq -r '.type' <<<"$item")
+            case "$type" in
+              create_pull_request)
+                branch=$(jq -r '.branch' <<<"$item")
+                title=$(jq -r '.title' <<<"$item")
+                body=$(jq -r '.body' <<<"$item")
+                bundle=$(jq -r '.bundle_path' <<<"$item")
+                bundle_local=$(resolve_bundle "$bundle")
+                echo "→ create_pull_request branch=$branch"
+
+                # Import the branch from the bundle and publish to origin.
+                # Force-with-lease guards against parallel updates of the same branch.
+                git fetch "$bundle_local" "+refs/heads/$branch:refs/heads/$branch"
+                git push origin "refs/heads/$branch:refs/heads/$branch" --force-with-lease
+
+                # Reuse an existing open PR if one already targets this branch;
+                # bail if a closed/merged PR exists (matches the post-step's
+                # earlier guard for replacement PRs).
+                existing=$(gh pr list --head "$branch" --state all --json number,state --jq '.[0]')
+                if [ -n "$existing" ] && [ "$existing" != "null" ]; then
+                  state=$(jq -r '.state' <<<"$existing")
+                  num=$(jq -r '.number' <<<"$existing")
+                  if [ "$state" = "OPEN" ]; then
+                    echo "::notice::PR #$num is already open for $branch — branch updated, no new PR created"
+                  else
+                    echo "::warning::Refusing to create a replacement PR for $branch — existing PR #$num is $state"
+                  fi
+                else
+                  gh pr create --base main --head "$branch" --title "$title" --body "$body" \
+                    --draft --label "area-release-notes" --label "automation"
+                fi
+                ;;
+              push_to_pull_request_branch)
+                branch=$(jq -r '.branch' <<<"$item")
+                bundle=$(jq -r '.bundle_path' <<<"$item")
+                bundle_local=$(resolve_bundle "$bundle")
+                pr_number=$(jq -r '.pull_request_number' <<<"$item")
+                message=$(jq -r '.message // empty' <<<"$item")
+                echo "→ push_to_pull_request_branch branch=$branch pr=$pr_number"
+                git fetch "$bundle_local" "+refs/heads/$branch:refs/heads/$branch"
+                git push origin "refs/heads/$branch:refs/heads/$branch" --force-with-lease
+                if [ -n "$message" ]; then
+                  gh pr comment "$pr_number" --body "$message"
+                fi
+                ;;
+              add_comment)
+                body=$(jq -r '.body' <<<"$item")
+                num=$(jq -r '.item_number' <<<"$item")
+                echo "→ add_comment item=$num"
+                gh pr comment "$num" --body "$body"
+                ;;
+              *)
+                echo "::warning::Unknown agent_output item type: $type"
+                ;;
+            esac
+          done
+
   pre-activation:
     outputs:
       copilot_pat_number: ${{ steps.select-copilot-pat.outputs.copilot_pat_number }}
