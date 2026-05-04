@@ -174,9 +174,16 @@ post-steps:
       manifest_dir=/tmp/gh-aw/agent/publish
       prs_json=/tmp/gh-aw/agent/release-notes-prs.json
       output_file="${GH_AW_SAFE_OUTPUTS}"
+      agent_output_file=/tmp/gh-aw/agent_output.json
 
       mkdir -p /tmp/gh-aw
       : > "$output_file"
+
+      # Reset agent_output.json to a known-empty shape. The gh-aw "Ingest agent
+      # output" step ran BEFORE this post-step and wrote {"items":[]} (because
+      # the agent uses publish-manifest indirection rather than calling
+      # safeoutputs MCP tools directly). We rebuild it here from the manifests.
+      echo '{"items":[]}' > "$agent_output_file"
 
       if [ ! -d "$manifest_dir" ]; then
         echo "No publish manifests were written"
@@ -189,6 +196,20 @@ post-steps:
         echo "No publish manifests were written"
         exit 0
       fi
+
+      # append_item <json-object>
+      # Appends a JSON object to both the JSONL safe-outputs file (for audit
+      # parity with the in-band path) and to agent_output.json's .items array
+      # (which is what the downstream safe_outputs job actually consumes via
+      # the uploaded artifact).
+      append_item() {
+        local item_json="$1"
+        printf '%s\n' "$item_json" >> "$output_file"
+        local tmp
+        tmp=$(mktemp)
+        jq --argjson item "$item_json" '.items += [$item]' "$agent_output_file" > "$tmp"
+        mv "$tmp" "$agent_output_file"
+      }
 
       for manifest in "${manifests[@]}"; do
         branch=$(jq -r '.branch // empty' "$manifest")
@@ -219,7 +240,7 @@ post-steps:
           ahead_count=$(git rev-list --count "origin/$branch..$branch" 2>/dev/null || echo 0)
 
           if [ "$ahead_count" -gt 0 ]; then
-            jq -cn \
+            push_item=$(jq -cn \
               --arg branch "$branch" \
               --arg bundle_path "$bundle_path" \
               --arg message "${comment:-Updated release notes content.}" \
@@ -230,20 +251,20 @@ post-steps:
                 bundle_path: $bundle_path,
                 message: $message,
                 pull_request_number: $pull_request_number
-              }' >> "$output_file"
-            printf '\n' >> "$output_file"
+              }')
+            append_item "$push_item"
           fi
 
           if [ -n "$comment" ]; then
-            jq -cn \
+            comment_item=$(jq -cn \
               --arg body "$comment" \
               --argjson item_number "$pr_number" \
               '{
                 type: "add_comment",
                 body: $body,
                 item_number: $item_number
-              }' >> "$output_file"
-            printf '\n' >> "$output_file"
+              }')
+            append_item "$comment_item"
           fi
 
           continue
@@ -260,7 +281,7 @@ post-steps:
           exit 1
         fi
 
-        jq -cn \
+        create_item=$(jq -cn \
           --arg branch "$branch" \
           --arg bundle_path "$bundle_path" \
           --arg title "$title" \
@@ -271,8 +292,8 @@ post-steps:
             bundle_path: $bundle_path,
             title: $title,
             body: $body
-          }' >> "$output_file"
-        printf '\n' >> "$output_file"
+          }')
+        append_item "$create_item"
       done
 jobs:
   install-tool:
