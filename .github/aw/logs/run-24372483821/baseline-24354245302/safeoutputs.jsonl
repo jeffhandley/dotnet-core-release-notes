@@ -1,0 +1,1 @@
+{"type":"noop","message":"Release notes for .NET 11 Preview 3 were written but the PR could not be created due to MCP registry policy check failure (401). Branch release-notes/11.0-preview3 has commit 7d50940 with 19 files documenting 44 changes. Infrastructure issue: safeoutputs MCP blocked by policy check."}

@@ -1,0 +1,103 @@
+﻿2026-04-13T22:58:01.1782752Z Current runner version: '2.333.1'
+2026-04-13T22:58:01.1815903Z ##[group]Runner Image Provisioner
+2026-04-13T22:58:01.1817289Z Hosted Compute Agent
+2026-04-13T22:58:01.1818445Z Version: 20260213.493
+2026-04-13T22:58:01.1819460Z Commit: 5c115507f6dd24b8de37d8bbe0bb4509d0cc0fa3
+2026-04-13T22:58:01.1820550Z Build Date: 2026-02-13T00:28:41Z
+2026-04-13T22:58:01.1821848Z Worker ID: {0e7be9d8-4b63-43fe-abc0-0edbdffe68af}
+2026-04-13T22:58:01.1823116Z Azure Region: westus
+2026-04-13T22:58:01.1823973Z ##[endgroup]
+2026-04-13T22:58:01.1826364Z ##[group]Operating System
+2026-04-13T22:58:01.1827238Z Ubuntu
+2026-04-13T22:58:01.1827958Z 24.04.4
+2026-04-13T22:58:01.1829081Z LTS
+2026-04-13T22:58:01.1829899Z ##[endgroup]
+2026-04-13T22:58:01.1830744Z ##[group]Runner Image
+2026-04-13T22:58:01.1831816Z Image: ubuntu-24.04
+2026-04-13T22:58:01.1832713Z Version: 20260406.80.1
+2026-04-13T22:58:01.1834723Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260406.80/images/ubuntu/Ubuntu2404-Readme.md
+2026-04-13T22:58:01.1837290Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260406.80
+2026-04-13T22:58:01.1839253Z ##[endgroup]
+2026-04-13T22:58:01.1841080Z ##[group]GITHUB_TOKEN Permissions
+2026-04-13T22:58:01.1843548Z Metadata: read
+2026-04-13T22:58:01.1844473Z Packages: read
+2026-04-13T22:58:01.1845358Z ##[endgroup]
+2026-04-13T22:58:01.1848592Z Secret source: Actions
+2026-04-13T22:58:01.1849899Z Prepare workflow directory
+2026-04-13T22:58:01.2295275Z Prepare all required actions
+2026-04-13T22:58:01.2332475Z Getting action download info
+2026-04-13T22:58:01.6683604Z Download action repository 'actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7' (SHA:c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7)
+2026-04-13T22:58:02.3857037Z Download action repository 'actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f' (SHA:bbbca2ddaa5d8feaa63e36b76fdaad77386f024f)
+2026-04-13T22:58:02.5490890Z Complete job name: install-tool
+2026-04-13T22:58:02.6173160Z ##[group]Run # Derive GH_HOST from GITHUB_SERVER_URL so the gh CLI targets the correct
+2026-04-13T22:58:02.6174250Z [36;1m# Derive GH_HOST from GITHUB_SERVER_URL so the gh CLI targets the correct[0m
+2026-04-13T22:58:02.6175165Z [36;1m# GitHub instance (GHES/GHEC). On github.com this is a harmless no-op.[0m
+2026-04-13T22:58:02.6175915Z [36;1mGH_HOST="${GITHUB_SERVER_URL#https://}"[0m
+2026-04-13T22:58:02.6176474Z [36;1mGH_HOST="${GH_HOST#http://}"[0m
+2026-04-13T22:58:02.6177021Z [36;1mecho "GH_HOST=${GH_HOST}" >> "$GITHUB_ENV"[0m
+2026-04-13T22:58:02.6202759Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-04-13T22:58:02.6203662Z ##[endgroup]
+2026-04-13T22:58:02.6459297Z ##[group]Run actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7
+2026-04-13T22:58:02.6460044Z with:
+2026-04-13T22:58:02.6460404Z   dotnet-version: 11.0
+2026-04-13T22:58:02.6460842Z   cache: false
+2026-04-13T22:58:02.6461195Z env:
+2026-04-13T22:58:02.6461543Z   GH_HOST: github.com
+2026-04-13T22:58:02.6461936Z ##[endgroup]
+2026-04-13T22:58:02.7813441Z [command]/home/runner/work/_actions/actions/setup-dotnet/c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7/externals/install-dotnet.sh --skip-non-versioned-files --runtime dotnet --channel LTS
+2026-04-13T22:58:02.9757744Z dotnet-install: .NET Core Runtime with version '10.0.5' is already installed.
+2026-04-13T22:58:02.9785313Z [command]/home/runner/work/_actions/actions/setup-dotnet/c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7/externals/install-dotnet.sh --skip-non-versioned-files --channel 11.0
+2026-04-13T22:58:03.8690734Z dotnet-install: Attempting to download using primary link https://builds.dotnet.microsoft.com/dotnet/Sdk/11.0.100-preview.2.26159.112/dotnet-sdk-11.0.100-preview.2.26159.112-linux-x64.tar.gz
+2026-04-13T22:58:07.4701454Z dotnet-install: Remote file https://builds.dotnet.microsoft.com/dotnet/Sdk/11.0.100-preview.2.26159.112/dotnet-sdk-11.0.100-preview.2.26159.112-linux-x64.tar.gz size is 198262837 bytes.
+2026-04-13T22:58:07.4704805Z dotnet-install: Extracting archive from https://builds.dotnet.microsoft.com/dotnet/Sdk/11.0.100-preview.2.26159.112/dotnet-sdk-11.0.100-preview.2.26159.112-linux-x64.tar.gz
+2026-04-13T22:58:12.4240274Z dotnet-install: Downloaded file size is 198262837 bytes.
+2026-04-13T22:58:12.4242984Z dotnet-install: The remote and local file sizes are equal.
+2026-04-13T22:58:12.7388391Z dotnet-install: Installed version is 11.0.100-preview.2.26159.112
+2026-04-13T22:58:12.7444350Z dotnet-install: Adding to current process PATH: `/usr/share/dotnet`. Note: This change will be visible only when sourcing script.
+2026-04-13T22:58:12.7446000Z dotnet-install: Note that the script does not resolve dependencies during installation.
+2026-04-13T22:58:12.7447810Z dotnet-install: To check the list of dependencies, go to https://learn.microsoft.com/dotnet/core/install, select your operating system and check the "Dependencies" section.
+2026-04-13T22:58:12.7449744Z dotnet-install: Installation finished successfully.
+2026-04-13T22:58:12.7987939Z ##[group]Run dotnet nuget add source https://nuget.pkg.github.com/richlander/index.json \
+2026-04-13T22:58:12.7989267Z [36;1mdotnet nuget add source https://nuget.pkg.github.com/richlander/index.json \[0m
+2026-04-13T22:58:12.7989949Z [36;1m  --name github-richlander \[0m
+2026-04-13T22:58:12.7990358Z [36;1m  --username github-actions \[0m
+2026-04-13T22:58:12.7990780Z [36;1m  --password "$GITHUB_TOKEN" \[0m
+2026-04-13T22:58:12.7991225Z [36;1m  --store-password-in-clear-text[0m
+2026-04-13T22:58:12.7991673Z [36;1mdotnet tool install ReleaseNotes.Gen \[0m
+2026-04-13T22:58:12.7992182Z [36;1m  --tool-path "$RUNNER_TEMP/release-notes-gen-tool"[0m
+2026-04-13T22:58:12.8018292Z shell: /usr/bin/bash -e {0}
+2026-04-13T22:58:12.8018602Z env:
+2026-04-13T22:58:12.8018838Z   GH_HOST: github.com
+2026-04-13T22:58:12.8019111Z   DOTNET_ROOT: /usr/share/dotnet
+2026-04-13T22:58:12.8019854Z   GITHUB_TOKEN: ***
+2026-04-13T22:58:12.8020123Z ##[endgroup]
+2026-04-13T22:58:13.8442310Z Package source with Name: github-richlander added successfully.
+2026-04-13T22:58:18.7185206Z You can invoke the tool using the following command: release-notes-gen
+2026-04-13T22:58:18.7186582Z Tool 'releasenotes.gen' (version '3.0.0') was successfully installed.
+2026-04-13T22:58:18.7433920Z ##[group]Run actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+2026-04-13T22:58:18.7434410Z with:
+2026-04-13T22:58:18.7434679Z   name: release-notes-gen-tool
+2026-04-13T22:58:18.7435040Z   path: /home/runner/work/_temp/release-notes-gen-tool
+2026-04-13T22:58:18.7435397Z   if-no-files-found: warn
+2026-04-13T22:58:18.7435666Z   compression-level: 6
+2026-04-13T22:58:18.7435921Z   overwrite: false
+2026-04-13T22:58:18.7436168Z   include-hidden-files: false
+2026-04-13T22:58:18.7436450Z   archive: true
+2026-04-13T22:58:18.7436675Z env:
+2026-04-13T22:58:18.7436890Z   GH_HOST: github.com
+2026-04-13T22:58:18.7437145Z   DOTNET_ROOT: /usr/share/dotnet
+2026-04-13T22:58:18.7437433Z ##[endgroup]
+2026-04-13T22:58:18.8836914Z With the provided path, there will be 1 file uploaded
+2026-04-13T22:58:18.8841698Z Artifact name is valid!
+2026-04-13T22:58:18.8842334Z Root directory input is valid!
+2026-04-13T22:58:19.1248772Z Uploading artifact: release-notes-gen-tool.zip
+2026-04-13T22:58:19.1322423Z Beginning upload of artifact content to blob storage
+2026-04-13T22:58:20.4479676Z Uploaded bytes 5908669
+2026-04-13T22:58:20.5207856Z Finished uploading artifact content to blob storage!
+2026-04-13T22:58:20.5209678Z SHA256 digest of uploaded artifact is d1887d8d3128e75f598b4f59771309994aa752bf3e7b045079123b755b899552
+2026-04-13T22:58:20.5210755Z Finalizing artifact upload
+2026-04-13T22:58:20.8236321Z Artifact release-notes-gen-tool successfully finalized. Artifact ID 6416861735
+2026-04-13T22:58:20.8237782Z Artifact release-notes-gen-tool has been successfully uploaded! Final size is 5908669 bytes. Artifact ID is 6416861735
+2026-04-13T22:58:20.8242900Z Artifact download URL: https://github.com/jeffhandley/dotnet-core-release-notes/actions/runs/24371176577/artifacts/6416861735
+2026-04-13T22:58:20.8391320Z Post job cleanup.
+2026-04-13T22:58:20.9641968Z Cleaning up orphan processes

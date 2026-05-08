@@ -222,15 +222,25 @@ post-steps:
           exit 1
         fi
 
-        if ! git show-ref --verify --quiet "refs/heads/$branch"; then
-          echo "Publish manifest references missing local branch: $branch" >&2
+        # Determine source of the branch content. Three cases:
+        #   1. local branch exists      -> bundle from local, push to origin
+        #   2. only origin/<branch>     -> branch is already on origin, no
+        #                                  push needed; just open PR if missing
+        #   3. neither exists           -> hard error
+        bundle_path=""
+        remote_only="false"
+        if git show-ref --verify --quiet "refs/heads/$branch"; then
+          safe_branch=$(printf '%s' "$branch" | tr '/[:space:]' '__')
+          bundle_path="/tmp/gh-aw/aw-${safe_branch}.bundle"
+          rm -f "$bundle_path"
+          git bundle create "$bundle_path" "refs/heads/$branch"
+        elif git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+          echo "Branch $branch only exists on origin; will open PR without pushing"
+          remote_only="true"
+        else
+          echo "Publish manifest references unknown branch (no local or remote): $branch" >&2
           exit 1
         fi
-
-        safe_branch=$(printf '%s' "$branch" | tr '/[:space:]' '__')
-        bundle_path="/tmp/gh-aw/aw-${safe_branch}.bundle"
-        rm -f "$bundle_path"
-        git bundle create "$bundle_path" "refs/heads/$branch"
 
         open_pr=$(jq -c --arg branch "$branch" '[.[] | select(.headRefName == $branch and .state == "OPEN")] | first' "$prs_json")
         non_open_pr=$(jq -c --arg branch "$branch" '[.[] | select(.headRefName == $branch and .state != "OPEN")] | first' "$prs_json")
@@ -286,12 +296,14 @@ post-steps:
           --arg bundle_path "$bundle_path" \
           --arg title "$title" \
           --arg body "$body" \
+          --argjson remote_only "$remote_only" \
           '{
             type: "create_pull_request",
             branch: $branch,
             bundle_path: $bundle_path,
             title: $title,
-            body: $body
+            body: $body,
+            remote_only: $remote_only
           }')
         append_item "$create_item"
       done
@@ -389,14 +401,21 @@ jobs:
                 branch=$(jq -r '.branch' <<<"$item")
                 title=$(jq -r '.title' <<<"$item")
                 body=$(jq -r '.body' <<<"$item")
-                bundle=$(jq -r '.bundle_path' <<<"$item")
-                bundle_local=$(resolve_bundle "$bundle")
-                echo "→ create_pull_request branch=$branch"
+                bundle=$(jq -r '.bundle_path // empty' <<<"$item")
+                remote_only=$(jq -r '.remote_only // false' <<<"$item")
+                echo "→ create_pull_request branch=$branch remote_only=$remote_only"
 
-                # Import the branch from the bundle and publish to origin.
-                # Force-with-lease guards against parallel updates of the same branch.
-                git fetch "$bundle_local" "+refs/heads/$branch:refs/heads/$branch"
-                git push origin "refs/heads/$branch:refs/heads/$branch" --force-with-lease
+                if [ "$remote_only" = "true" ]; then
+                  # Branch already exists on origin (e.g. previously pushed by
+                  # an earlier agent run). Just open the PR if missing.
+                  git fetch origin "+refs/heads/$branch:refs/remotes/origin/$branch"
+                else
+                  # Import the branch from the bundle and publish to origin.
+                  # Force-with-lease guards against parallel updates of the same branch.
+                  bundle_local=$(resolve_bundle "$bundle")
+                  git fetch "$bundle_local" "+refs/heads/$branch:refs/heads/$branch"
+                  git push origin "refs/heads/$branch:refs/heads/$branch" --force-with-lease
+                fi
 
                 # Reuse an existing open PR if one already targets this branch;
                 # bail if a closed/merged PR exists (matches the post-step's
