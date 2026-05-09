@@ -475,6 +475,7 @@ jobs:
       copilot_pat_number: ${{ steps.select-copilot-pat.outputs.copilot_pat_number }}
 engine:
   id: copilot
+  version: "1.0.43"
   env:
     # We cannot use line breaks in this expression as it leads to a syntax error in the compiled workflow
     # If none of the `COPILOT_PAT_#` secrets were selected, then the default COPILOT_GITHUB_TOKEN is used
