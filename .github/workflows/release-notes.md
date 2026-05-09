@@ -365,7 +365,12 @@ jobs:
 
       - name: Publish PRs from agent output
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITHUB_TOKEN can push branches but is not permitted to create PRs
+          # unless the repo's "Allow GitHub Actions to create and approve pull
+          # requests" setting is on. Use a Copilot PAT to avoid relying on it.
+          # Falls back to GITHUB_TOKEN so the job still runs (and the push
+          # succeeds) if no PAT is configured.
+          GH_TOKEN: ${{ secrets.COPILOT_PAT_0 || secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           agent_output=/tmp/gh-aw/agent_output.json
