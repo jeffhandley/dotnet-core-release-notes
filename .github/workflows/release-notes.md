@@ -337,13 +337,13 @@ jobs:
           path: ${{ runner.temp }}/release-notes-gen-tool
 
   publish_release_notes:
-    name: Publish release-notes pull requests
+    name: Publish release-notes branches
     needs: [agent]
     if: always() && needs.agent.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
+      pull-requests: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -395,6 +395,23 @@ jobs:
             printf '%s' "$local_path"
           }
 
+          # The job is intentionally branches-only. We don't call `gh pr
+          # create` because that would require enabling the repo-level
+          # "Allow GitHub Actions to create and approve pull requests"
+          # setting, which also grants approval power. Instead, push the
+          # branch and surface a one-click "compare" URL that a human can
+          # use to open the PR.
+          repo_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+
+          # Emit a Markdown summary header for branch links.
+          summary="${GITHUB_STEP_SUMMARY:-/dev/null}"
+          {
+            echo "## Release notes branches published"
+            echo ""
+            echo "Open a PR for any of these from the link below:"
+            echo ""
+          } >> "$summary"
+
           for i in $(seq 0 $((items_count - 1))); do
             item=$(jq -c ".items[$i]" "$agent_output")
             type=$(jq -r '.type' <<<"$item")
@@ -402,38 +419,32 @@ jobs:
               create_pull_request)
                 branch=$(jq -r '.branch' <<<"$item")
                 title=$(jq -r '.title' <<<"$item")
-                body=$(jq -r '.body' <<<"$item")
                 bundle=$(jq -r '.bundle_path // empty' <<<"$item")
                 remote_only=$(jq -r '.remote_only // false' <<<"$item")
                 echo "→ create_pull_request branch=$branch remote_only=$remote_only"
 
                 if [ "$remote_only" = "true" ]; then
-                  # Branch already exists on origin (e.g. previously pushed by
-                  # an earlier agent run). Just open the PR if missing.
-                  git fetch origin "+refs/heads/$branch:refs/remotes/origin/$branch"
+                  echo "  branch already on origin — skipping push"
                 else
-                  # Import the branch from the bundle and publish to origin.
-                  # Force-with-lease guards against parallel updates of the same branch.
                   bundle_local=$(resolve_bundle "$bundle")
                   git fetch "$bundle_local" "+refs/heads/$branch:refs/heads/$branch"
                   git push origin "refs/heads/$branch:refs/heads/$branch" --force-with-lease
                 fi
 
-                # Reuse an existing open PR if one already targets this branch;
-                # bail if a closed/merged PR exists (matches the post-step's
-                # earlier guard for replacement PRs).
-                existing=$(gh pr list --head "$branch" --state all --json number,state --jq '.[0]')
+                # If an open PR already exists, link to it; otherwise emit a
+                # compare URL so a human can open the PR with one click.
+                existing=$(gh pr list --head "$branch" --state open --json number,url --jq '.[0]')
                 if [ -n "$existing" ] && [ "$existing" != "null" ]; then
-                  state=$(jq -r '.state' <<<"$existing")
+                  url=$(jq -r '.url' <<<"$existing")
                   num=$(jq -r '.number' <<<"$existing")
-                  if [ "$state" = "OPEN" ]; then
-                    echo "::notice::PR #$num is already open for $branch — branch updated, no new PR created"
-                  else
-                    echo "::warning::Refusing to create a replacement PR for $branch — existing PR #$num is $state"
-                  fi
+                  echo "::notice::Branch $branch updated; existing PR #$num: $url"
+                  echo "- ✅ \`$branch\` — existing PR [#$num]($url) updated" >> "$summary"
                 else
-                  gh pr create --base main --head "$branch" --title "$title" --body "$body" \
-                    --draft --label "area-release-notes" --label "automation"
+                  compare="${repo_url}/compare/main...$(printf '%s' "$branch" | sed 's,/,%2F,g')?expand=1"
+                  echo "::notice::Branch $branch pushed. Open PR: $compare"
+                  enc_title=$(printf '%s' "$title" | jq -sRr @uri)
+                  compare_titled="${compare}&title=${enc_title}"
+                  echo "- 🌱 \`$branch\` — [open a PR]($compare_titled)" >> "$summary"
                 fi
                 ;;
               push_to_pull_request_branch)
@@ -441,19 +452,17 @@ jobs:
                 bundle=$(jq -r '.bundle_path' <<<"$item")
                 bundle_local=$(resolve_bundle "$bundle")
                 pr_number=$(jq -r '.pull_request_number' <<<"$item")
-                message=$(jq -r '.message // empty' <<<"$item")
                 echo "→ push_to_pull_request_branch branch=$branch pr=$pr_number"
                 git fetch "$bundle_local" "+refs/heads/$branch:refs/heads/$branch"
                 git push origin "refs/heads/$branch:refs/heads/$branch" --force-with-lease
-                if [ -n "$message" ]; then
-                  gh pr comment "$pr_number" --body "$message"
-                fi
+                pr_url="${repo_url}/pull/${pr_number}"
+                echo "- 🔁 \`$branch\` — pushed update to PR [#$pr_number]($pr_url)" >> "$summary"
                 ;;
               add_comment)
-                body=$(jq -r '.body' <<<"$item")
+                # Comments are skipped in the branches-only design — the
+                # human will see content via the PR they create.
                 num=$(jq -r '.item_number' <<<"$item")
-                echo "→ add_comment item=$num"
-                gh pr comment "$num" --body "$body"
+                echo "→ add_comment item=$num (skipped — branches-only mode)"
                 ;;
               *)
                 echo "::warning::Unknown agent_output item type: $type"

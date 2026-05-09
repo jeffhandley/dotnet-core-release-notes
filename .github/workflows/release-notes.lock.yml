@@ -1,4 +1,4 @@
-# gh-aw-metadata: {"schema_version":"v3","frontmatter_hash":"2ab8dac336befdfe2644516360c275f61933da3b0aed292b033f16c4023420e8","compiler_version":"v0.67.1","strict":true,"agent_id":"copilot"}
+# gh-aw-metadata: {"schema_version":"v3","frontmatter_hash":"be892928b647a85c2900daa53714f8b72bfd71212d7e67f2b85ee9abc4a9154c","compiler_version":"v0.67.1","strict":true,"agent_id":"copilot"}
 #    ___                   _   _      
 #   / _ \                 | | (_)     
 #  | |_| | __ _  ___ _ __ | |_ _  ___ 
@@ -193,20 +193,20 @@ jobs:
         run: |
           bash ${RUNNER_TEMP}/gh-aw/actions/create_prompt_first.sh
           {
-          cat << 'GH_AW_PROMPT_dd790ca032f07c0f_EOF'
+          cat << 'GH_AW_PROMPT_64925d0fafa17649_EOF'
           <system>
-          GH_AW_PROMPT_dd790ca032f07c0f_EOF
+          GH_AW_PROMPT_64925d0fafa17649_EOF
           cat "${RUNNER_TEMP}/gh-aw/prompts/xpia.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/temp_folder_prompt.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/markdown.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/safe_outputs_prompt.md"
-          cat << 'GH_AW_PROMPT_dd790ca032f07c0f_EOF'
+          cat << 'GH_AW_PROMPT_64925d0fafa17649_EOF'
           <safe-output-tools>
           Tools: add_comment(max:20), create_pull_request(max:5), push_to_pull_request_branch(max:5), missing_tool, missing_data, noop
-          GH_AW_PROMPT_dd790ca032f07c0f_EOF
+          GH_AW_PROMPT_64925d0fafa17649_EOF
           cat "${RUNNER_TEMP}/gh-aw/prompts/safe_outputs_create_pull_request.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/safe_outputs_push_to_pr_branch.md"
-          cat << 'GH_AW_PROMPT_dd790ca032f07c0f_EOF'
+          cat << 'GH_AW_PROMPT_64925d0fafa17649_EOF'
           </safe-output-tools>
           <github-context>
           The following GitHub context information is available for this workflow:
@@ -236,12 +236,12 @@ jobs:
           {{/if}}
           </github-context>
           
-          GH_AW_PROMPT_dd790ca032f07c0f_EOF
+          GH_AW_PROMPT_64925d0fafa17649_EOF
           cat "${RUNNER_TEMP}/gh-aw/prompts/github_mcp_tools_with_safeoutputs_prompt.md"
-          cat << 'GH_AW_PROMPT_dd790ca032f07c0f_EOF'
+          cat << 'GH_AW_PROMPT_64925d0fafa17649_EOF'
           </system>
           {{#runtime-import .github/workflows/release-notes.md}}
-          GH_AW_PROMPT_dd790ca032f07c0f_EOF
+          GH_AW_PROMPT_64925d0fafa17649_EOF
           } > "$GH_AW_PROMPT"
       - name: Interpolate variables and render templates
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
@@ -445,12 +445,12 @@ jobs:
           mkdir -p ${RUNNER_TEMP}/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_920f9f933e5858af_EOF'
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_0b79d2b5ec0008e2_EOF'
           {"add_comment":{"max":20,"target":"*"},"create_pull_request":{"draft":true,"labels":["area-release-notes","automation"],"max":5,"max_patch_size":1024,"protected_files":["package.json","bun.lockb","bunfig.toml","deno.json","deno.jsonc","deno.lock","global.json","NuGet.Config","Directory.Packages.props","mix.exs","mix.lock","go.mod","go.sum","stack.yaml","stack.yaml.lock","pom.xml","build.gradle","build.gradle.kts","settings.gradle","settings.gradle.kts","gradle.properties","package-lock.json","yarn.lock","pnpm-lock.yaml","npm-shrinkwrap.json","requirements.txt","Pipfile","Pipfile.lock","pyproject.toml","setup.py","setup.cfg","Gemfile","Gemfile.lock","uv.lock","CODEOWNERS"],"protected_path_prefixes":[".github/",".agents/"],"title_prefix":"[release-notes] "},"create_report_incomplete_issue":{},"missing_data":{},"missing_tool":{},"noop":{"max":1,"report-as-issue":"true"},"push_to_pull_request_branch":{"if_no_changes":"warn","labels":["area-release-notes","automation"],"max":5,"max_patch_size":1024,"protected_files":["package.json","bun.lockb","bunfig.toml","deno.json","deno.jsonc","deno.lock","global.json","NuGet.Config","Directory.Packages.props","mix.exs","mix.lock","go.mod","go.sum","stack.yaml","stack.yaml.lock","pom.xml","build.gradle","build.gradle.kts","settings.gradle","settings.gradle.kts","gradle.properties","package-lock.json","yarn.lock","pnpm-lock.yaml","npm-shrinkwrap.json","requirements.txt","Pipfile","Pipfile.lock","pyproject.toml","setup.py","setup.cfg","Gemfile","Gemfile.lock","uv.lock","CODEOWNERS"],"protected_path_prefixes":[".github/",".agents/"],"title_prefix":"[release-notes] "},"report_incomplete":{}}
-          GH_AW_SAFE_OUTPUTS_CONFIG_920f9f933e5858af_EOF
+          GH_AW_SAFE_OUTPUTS_CONFIG_0b79d2b5ec0008e2_EOF
       - name: Write Safe Outputs Tools
         run: |
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/tools_meta.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_META_fe5a5a91dfb00958_EOF'
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/tools_meta.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_META_4bbbd0da32149abc_EOF'
           {
             "description_suffixes": {
               "add_comment": " CONSTRAINTS: Maximum 20 comment(s) can be added. Target: *.",
@@ -460,8 +460,8 @@ jobs:
             "repo_params": {},
             "dynamic_tools": []
           }
-          GH_AW_SAFE_OUTPUTS_TOOLS_META_fe5a5a91dfb00958_EOF
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/validation.json << 'GH_AW_SAFE_OUTPUTS_VALIDATION_42797b9e49969232_EOF'
+          GH_AW_SAFE_OUTPUTS_TOOLS_META_4bbbd0da32149abc_EOF
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/validation.json << 'GH_AW_SAFE_OUTPUTS_VALIDATION_aaca372b10cb7b53_EOF'
           {
             "add_comment": {
               "defaultMax": 1,
@@ -611,7 +611,7 @@ jobs:
               }
             }
           }
-          GH_AW_SAFE_OUTPUTS_VALIDATION_42797b9e49969232_EOF
+          GH_AW_SAFE_OUTPUTS_VALIDATION_aaca372b10cb7b53_EOF
           node ${RUNNER_TEMP}/gh-aw/actions/generate_safe_outputs_tools.cjs
       - name: Generate Safe Outputs MCP Server Config
         id: safe-outputs-config
@@ -681,7 +681,7 @@ jobs:
           export MCP_GATEWAY_DOCKER_COMMAND='docker run -i --rm --network host -v /var/run/docker.sock:/var/run/docker.sock -e MCP_GATEWAY_PORT -e MCP_GATEWAY_DOMAIN -e MCP_GATEWAY_API_KEY -e MCP_GATEWAY_PAYLOAD_DIR -e MCP_GATEWAY_PAYLOAD_SIZE_THRESHOLD -e DEBUG -e MCP_GATEWAY_LOG_DIR -e GH_AW_MCP_LOG_DIR -e GH_AW_SAFE_OUTPUTS -e GH_AW_SAFE_OUTPUTS_CONFIG_PATH -e GH_AW_SAFE_OUTPUTS_TOOLS_PATH -e GH_AW_ASSETS_BRANCH -e GH_AW_ASSETS_MAX_SIZE_KB -e GH_AW_ASSETS_ALLOWED_EXTS -e DEFAULT_BRANCH -e GITHUB_MCP_SERVER_TOKEN -e GITHUB_MCP_GUARD_MIN_INTEGRITY -e GITHUB_MCP_GUARD_REPOS -e GITHUB_REPOSITORY -e GITHUB_SERVER_URL -e GITHUB_SHA -e GITHUB_WORKSPACE -e GITHUB_TOKEN -e GITHUB_RUN_ID -e GITHUB_RUN_NUMBER -e GITHUB_RUN_ATTEMPT -e GITHUB_JOB -e GITHUB_ACTION -e GITHUB_EVENT_NAME -e GITHUB_EVENT_PATH -e GITHUB_ACTOR -e GITHUB_ACTOR_ID -e GITHUB_TRIGGERING_ACTOR -e GITHUB_WORKFLOW -e GITHUB_WORKFLOW_REF -e GITHUB_WORKFLOW_SHA -e GITHUB_REF -e GITHUB_REF_NAME -e GITHUB_REF_TYPE -e GITHUB_HEAD_REF -e GITHUB_BASE_REF -e GH_AW_SAFE_OUTPUTS_PORT -e GH_AW_SAFE_OUTPUTS_API_KEY -v /tmp/gh-aw/mcp-payloads:/tmp/gh-aw/mcp-payloads:rw -v /opt:/opt:ro -v /tmp:/tmp:rw -v '"${GITHUB_WORKSPACE}"':'"${GITHUB_WORKSPACE}"':rw ghcr.io/github/gh-aw-mcpg:v0.2.14'
           
           mkdir -p /home/runner/.copilot
-          cat << GH_AW_MCP_CONFIG_694804dd29f4735b_EOF | bash ${RUNNER_TEMP}/gh-aw/actions/start_mcp_gateway.sh
+          cat << GH_AW_MCP_CONFIG_433df16e8f18849f_EOF | bash ${RUNNER_TEMP}/gh-aw/actions/start_mcp_gateway.sh
           {
             "mcpServers": {
               "github": {
@@ -722,7 +722,7 @@ jobs:
               "payloadDir": "${MCP_GATEWAY_PAYLOAD_DIR}"
             }
           }
-          GH_AW_MCP_CONFIG_694804dd29f4735b_EOF
+          GH_AW_MCP_CONFIG_433df16e8f18849f_EOF
       - name: Download activation artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -1323,13 +1323,13 @@ jobs:
           SECRET_9: ${{ secrets.COPILOT_PAT_9 }}
 
   publish_release_notes:
-    name: Publish release-notes pull requests
+    name: Publish release-notes branches
     needs: agent
     if: always() && needs.agent.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
+      pull-requests: read
 
     steps:
       - name: Configure GH_HOST for enterprise compatibility
@@ -1384,6 +1384,23 @@ jobs:
             printf '%s' "$local_path"
           }
 
+          # The job is intentionally branches-only. We don't call `gh pr
+          # create` because that would require enabling the repo-level
+          # "Allow GitHub Actions to create and approve pull requests"
+          # setting, which also grants approval power. Instead, push the
+          # branch and surface a one-click "compare" URL that a human can
+          # use to open the PR.
+          repo_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+
+          # Emit a Markdown summary header for branch links.
+          summary="${GITHUB_STEP_SUMMARY:-/dev/null}"
+          {
+            echo "## Release notes branches published"
+            echo ""
+            echo "Open a PR for any of these from the link below:"
+            echo ""
+          } >> "$summary"
+
           for i in $(seq 0 $((items_count - 1))); do
             item=$(jq -c ".items[$i]" "$agent_output")
             type=$(jq -r '.type' <<<"$item")
@@ -1391,38 +1408,32 @@ jobs:
               create_pull_request)
                 branch=$(jq -r '.branch' <<<"$item")
                 title=$(jq -r '.title' <<<"$item")
-                body=$(jq -r '.body' <<<"$item")
                 bundle=$(jq -r '.bundle_path // empty' <<<"$item")
                 remote_only=$(jq -r '.remote_only // false' <<<"$item")
                 echo "→ create_pull_request branch=$branch remote_only=$remote_only"
 
                 if [ "$remote_only" = "true" ]; then
-                  # Branch already exists on origin (e.g. previously pushed by
-                  # an earlier agent run). Just open the PR if missing.
-                  git fetch origin "+refs/heads/$branch:refs/remotes/origin/$branch"
+                  echo "  branch already on origin — skipping push"
                 else
-                  # Import the branch from the bundle and publish to origin.
-                  # Force-with-lease guards against parallel updates of the same branch.
                   bundle_local=$(resolve_bundle "$bundle")
                   git fetch "$bundle_local" "+refs/heads/$branch:refs/heads/$branch"
                   git push origin "refs/heads/$branch:refs/heads/$branch" --force-with-lease
                 fi
 
-                # Reuse an existing open PR if one already targets this branch;
-                # bail if a closed/merged PR exists (matches the post-step's
-                # earlier guard for replacement PRs).
-                existing=$(gh pr list --head "$branch" --state all --json number,state --jq '.[0]')
+                # If an open PR already exists, link to it; otherwise emit a
+                # compare URL so a human can open the PR with one click.
+                existing=$(gh pr list --head "$branch" --state open --json number,url --jq '.[0]')
                 if [ -n "$existing" ] && [ "$existing" != "null" ]; then
-                  state=$(jq -r '.state' <<<"$existing")
+                  url=$(jq -r '.url' <<<"$existing")
                   num=$(jq -r '.number' <<<"$existing")
-                  if [ "$state" = "OPEN" ]; then
-                    echo "::notice::PR #$num is already open for $branch — branch updated, no new PR created"
-                  else
-                    echo "::warning::Refusing to create a replacement PR for $branch — existing PR #$num is $state"
-                  fi
+                  echo "::notice::Branch $branch updated; existing PR #$num: $url"
+                  echo "- ✅ \`$branch\` — existing PR [#$num]($url) updated" >> "$summary"
                 else
-                  gh pr create --base main --head "$branch" --title "$title" --body "$body" \
-                    --draft --label "area-release-notes" --label "automation"
+                  compare="${repo_url}/compare/main...$(printf '%s' "$branch" | sed 's,/,%2F,g')?expand=1"
+                  echo "::notice::Branch $branch pushed. Open PR: $compare"
+                  enc_title=$(printf '%s' "$title" | jq -sRr @uri)
+                  compare_titled="${compare}&title=${enc_title}"
+                  echo "- 🌱 \`$branch\` — [open a PR]($compare_titled)" >> "$summary"
                 fi
                 ;;
               push_to_pull_request_branch)
@@ -1430,19 +1441,17 @@ jobs:
                 bundle=$(jq -r '.bundle_path' <<<"$item")
                 bundle_local=$(resolve_bundle "$bundle")
                 pr_number=$(jq -r '.pull_request_number' <<<"$item")
-                message=$(jq -r '.message // empty' <<<"$item")
                 echo "→ push_to_pull_request_branch branch=$branch pr=$pr_number"
                 git fetch "$bundle_local" "+refs/heads/$branch:refs/heads/$branch"
                 git push origin "refs/heads/$branch:refs/heads/$branch" --force-with-lease
-                if [ -n "$message" ]; then
-                  gh pr comment "$pr_number" --body "$message"
-                fi
+                pr_url="${repo_url}/pull/${pr_number}"
+                echo "- 🔁 \`$branch\` — pushed update to PR [#$pr_number]($pr_url)" >> "$summary"
                 ;;
               add_comment)
-                body=$(jq -r '.body' <<<"$item")
+                # Comments are skipped in the branches-only design — the
+                # human will see content via the PR they create.
                 num=$(jq -r '.item_number' <<<"$item")
-                echo "→ add_comment item=$num"
-                gh pr comment "$num" --body "$body"
+                echo "→ add_comment item=$num (skipped — branches-only mode)"
                 ;;
               *)
                 echo "::warning::Unknown agent_output item type: $type"
