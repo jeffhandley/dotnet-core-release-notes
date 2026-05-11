@@ -158,12 +158,149 @@ steps:
         --arg branches "/tmp/gh-aw/agent/release-notes-branches.txt" \
         --arg comment_dir "/tmp/gh-aw/agent/pr-comments" \
         --arg publish_dir "/tmp/gh-aw/agent/publish" \
+        --arg target "/tmp/gh-aw/agent/target.json" \
+        --arg components "/tmp/gh-aw/agent/components.json" \
         '{
           release_notes_prs: $prs,
           release_notes_branches: $branches,
           pr_comment_directory: $comment_dir,
-          publish_directory: $publish_dir
+          publish_directory: $publish_dir,
+          target: $target,
+          components: $components
         }' > /tmp/gh-aw/agent/context-index.json
+
+  - name: Compute target milestone
+    env:
+      INPUTS_MILESTONE: ${{ github.event.inputs.milestone }}
+    run: |
+      set -euo pipefail
+      mkdir -p /tmp/gh-aw/agent
+
+      INDEX_PATH=release-notes/releases-index.json
+      COMPONENTS_PATH=release-notes/components.json
+
+      # Helper: compute successor milestone label from "latest-release"
+      #   11.0.0-preview.2 -> preview3
+      #   11.0.0-rc.1      -> rc2
+      #   anything else    -> empty (caller must skip or override)
+      succ_milestone() {
+        local latest="$1"
+        if [[ "$latest" =~ -preview\.([0-9]+) ]]; then
+          echo "preview$((BASH_REMATCH[1] + 1))"
+          return
+        fi
+        if [[ "$latest" =~ -rc\.([0-9]+) ]]; then
+          echo "rc$((BASH_REMATCH[1] + 1))"
+          return
+        fi
+        echo ""
+      }
+
+      # Helper: "preview3" -> "preview-3", "rc1" -> "rc-1", "ga" -> "ga"
+      to_branch_label() {
+        local m="$1"
+        if [[ "$m" =~ ^(preview|rc)([0-9]+)$ ]]; then
+          echo "${BASH_REMATCH[1]}-${BASH_REMATCH[2]}"
+        else
+          echo "$m"
+        fi
+      }
+
+      # Helper: "preview3" -> "preview", "rc1" -> "rc", "ga" -> "ga"
+      to_phase_dir() {
+        local m="$1"
+        if [[ "$m" =~ ^(preview|rc)[0-9]+$ ]]; then
+          echo "${BASH_REMATCH[1]}"
+        else
+          echo "$m"
+        fi
+      }
+
+      targets="[]"
+      while IFS=$'\t' read -r channel latest_release support_phase; do
+        [ -n "$channel" ] || continue
+
+        if [ -n "$INPUTS_MILESTONE" ]; then
+          natural=$(succ_milestone "$latest_release")
+          if [ "$INPUTS_MILESTONE" != "$natural" ]; then
+            case "$INPUTS_MILESTONE" in
+              rc1)
+                if [[ ! "$latest_release" =~ -preview\.[0-9]+$ ]]; then
+                  echo "::error::Override 'rc1' requires latest-release to be a preview; saw $latest_release"
+                  exit 1
+                fi
+                ;;
+              ga)
+                if [[ ! "$latest_release" =~ -rc\.[0-9]+$ ]]; then
+                  echo "::error::Override 'ga' requires latest-release to be an rc; saw $latest_release"
+                  exit 1
+                fi
+                ;;
+              *)
+                echo "::error::Override '$INPUTS_MILESTONE' is not a valid successor of $latest_release (natural successor is '$natural'); only natural successors or 'rc1'/'ga' boundary transitions are permitted"
+                exit 1
+                ;;
+            esac
+          fi
+          milestone="$INPUTS_MILESTONE"
+        else
+          milestone=$(succ_milestone "$latest_release")
+        fi
+
+        if [ -z "$milestone" ]; then
+          echo "::notice::Skipping $channel — no automatic successor for $latest_release. Use the workflow_dispatch 'milestone' input for phase-boundary transitions (rc1, ga)."
+          continue
+        fi
+
+        major_flat="${channel%.*}"
+        milestone_label=$(to_branch_label "$milestone")
+        phase_dir=$(to_phase_dir "$milestone")
+
+        target=$(jq -n \
+          --arg major "$channel" \
+          --arg major_flat "$major_flat" \
+          --arg milestone "$milestone" \
+          --arg milestone_label "$milestone_label" \
+          --arg last_shipped "$latest_release" \
+          --arg phase "$support_phase" \
+          --arg phase_dir "$phase_dir" \
+          '{
+            major: $major,
+            major_flat: $major_flat,
+            milestone: $milestone,
+            milestone_branch_label: $milestone_label,
+            last_shipped: $last_shipped,
+            support_phase: $phase,
+            branch_features: "release-notes/dotnet-\($major_flat)-\($milestone_label)-features",
+            content_dir: "release-notes/\($major)/\($phase_dir)/\($milestone)",
+            vmr_base_tag: "v\($last_shipped)",
+            vmr_head_ref: "main"
+          }')
+        targets=$(jq --argjson t "$target" '. += [$t]' <<<"$targets")
+      done < <(jq -r '."releases-index"[] | select(."support-phase" == "preview" or ."support-phase" == "go-live") | [."channel-version", ."latest-release", ."support-phase"] | @tsv' "$INDEX_PATH")
+
+      # Invariant: at most one active milestone per major.
+      dup=$(jq -r '[.[].major] | group_by(.) | map(select(length > 1)) | length' <<<"$targets")
+      if [ "$dup" -gt 0 ]; then
+        echo "::error::Invariant violated — more than one active milestone per major:"
+        jq '.' <<<"$targets"
+        exit 1
+      fi
+
+      echo "$targets" | jq '.' > /tmp/gh-aw/agent/target.json
+      cp "$COMPONENTS_PATH" /tmp/gh-aw/agent/components.json
+
+      summary="${GITHUB_STEP_SUMMARY:-/dev/null}"
+      {
+        echo "## Computed targets"
+        echo ""
+        echo '```json'
+        cat /tmp/gh-aw/agent/target.json
+        echo '```'
+      } >> "$summary"
+
+      echo "Computed targets:"
+      cat /tmp/gh-aw/agent/target.json
 
 post-steps:
   - name: Translate publish manifests to safe outputs
@@ -563,10 +700,13 @@ Do **not** fetch repository file contents or compare views from `raw.githubuserc
 ### Preloaded context in this workflow
 
 The workflow downloads `release-notes-gen`, places it on `PATH`, and clones the
-dotnet VMR to `/tmp/dotnet` before agentic execution starts. It also preloads
-release-notes repository context into local files:
+dotnet VMR to `/tmp/dotnet` before agentic execution starts. It also computes
+the active milestone target deterministically and preloads release-notes
+repository context into local files:
 
 - `/tmp/gh-aw/agent/context-index.json`
+- `/tmp/gh-aw/agent/target.json` — **the single source of truth for what this run targets** (see below)
+- `/tmp/gh-aw/agent/components.json` — copy of `release-notes/components.json` for component routing
 - `/tmp/gh-aw/agent/release-notes-prs.json`
 - `/tmp/gh-aw/agent/release-notes-branches.txt`
 - `/tmp/gh-aw/agent/pr-comments/<pr>-issue-comments.json`
@@ -596,84 +736,68 @@ your final response.
 
 ## What to do each run
 
-### 1. Discover active milestones
+### 1. Read the active target
 
-Multiple milestones can be active simultaneously. For example, if `main` has moved to Preview 5 and Preview 4 has a release branch but hasn't shipped yet, both need release notes.
-
-#### a. What has shipped (this repo)
+The workflow computed the active milestone targets for you deterministically from `release-notes/releases-index.json` and wrote them to `/tmp/gh-aw/agent/target.json`. **Use this file verbatim. Do not discover milestones yourself.**
 
 ```bash
-jq -r '.releases[0] | "\(.["release-version"]) \(.["release-date"])"' release-notes/11.0/releases.json
-# → "11.0.0-preview.3 2026-04-08"
+cat /tmp/gh-aw/agent/target.json
 ```
 
-The shipped preview number is the **floor**. Everything above it may need work.
+The structure is a JSON array of targets, typically a single entry:
 
-#### b. What's building on main (VMR)
-
-```bash
-git -C /tmp/dotnet show main:eng/Versions.props | grep -E 'PreReleaseVersionLabel|PreReleaseVersionIteration'
+```json
+[
+  {
+    "major": "11.0",
+    "major_flat": "11",
+    "milestone": "preview3",
+    "milestone_branch_label": "preview-3",
+    "last_shipped": "11.0.0-preview.2",
+    "support_phase": "preview",
+    "branch_features": "release-notes/dotnet-11-preview-3-features",
+    "content_dir": "release-notes/11.0/preview/preview3",
+    "vmr_base_tag": "v11.0.0-preview.2",
+    "vmr_head_ref": "main"
+  }
+]
 ```
 
-This tells you the milestone `main` is building (e.g., iteration `5`).
+Rules:
 
-#### c. What VMR tags and release branches exist
+- If `target.json` is `[]`, exit cleanly with a final message that there is nothing to do this run — do not invent a target.
+- For each entry, the **only** valid publish branch for that target is `branch_features`. Do not create or push to any other branch for that target.
+- `vmr_base_tag` and `vmr_head_ref` are the refs to feed `release-notes generate changes`. Verify the tag exists with `git -C /tmp/dotnet rev-parse --verify "refs/tags/$vmr_base_tag" >/dev/null`; if it does not exist, fail loudly and report which alternative tags do exist near that name. Do not silently substitute another ref.
+- Use `content_dir` for file paths inside this repository (this matches the existing per-milestone directory convention).
+- Strict serial invariant: exactly one milestone is active per major version at any time. The workflow already enforced this; if it produced multiple entries for the same major, that is a workflow bug — abort.
 
-```bash
-# Tags — each represents a shipped or finalized milestone
-git -C /tmp/dotnet tag -l 'v11.0.0-preview.*' --sort=-v:refname
+### Legacy branches are read-only history
 
-# Release branches — each represents an in-flight milestone being stabilized
-git -C /tmp/dotnet branch -r -l 'origin/release/11.0.1xx-preview*'
-```
+The preload step lists every branch matching `release-notes/*` in `/tmp/gh-aw/agent/release-notes-branches.txt`. Branches whose names do not match the `branch_features` of any current target are **legacy history**:
 
-#### d. Build the milestone list
+- treat them as read-only context for understanding earlier editorial decisions
+- do **not** push to them, do **not** reuse them, and do **not** create PRs against them
+- if a legacy branch contains content that should carry forward, copy/adapt it into the current `branch_features` worktree rather than reviving the legacy branch
 
-For each iteration N where `latest_shipped < N <= main_iteration`:
+### 2. For each active target
 
-1. **Check for a VMR tag** (`v11.0.0-preview.N.*`) — if found, this milestone has been finalized
-2. **Check for a VMR release branch** (`release/11.0.1xx-previewN`) — if found, this milestone is stabilizing
-3. **Check for existing release notes directory** in this repo (`release-notes/11.0/preview/previewN/`)
-4. **Check for an existing PR** on this repo by reading `/tmp/gh-aw/agent/release-notes-prs.json`
-
-Each milestone gets its own branch and PR on this repo.
-
-This is **per release, not per run**:
-
-- reuse the same branch and the same PR for the same release on every rerun
-- never create a second branch or a second PR for a release that already has one
-- it is normal for more than one release branch/PR to exist at the same time when multiple releases are active
-- in practice this will usually be one or two active release branches, but handle any active set you discover
-
-#### e. Determine base and head refs per milestone
-
-For each active milestone N:
-
-| Scenario | Base ref | Head ref |
-| -------- | -------- | -------- |
-| N has VMR tag | Tag for N-1 | Tag for N |
-| N has release branch, no tag | Tag for N-1 | release branch tip |
-| N is only on main | Tag for N-1 | main |
-
-**Critical rule**: never use `main` as the head ref for milestone N if `main` has already moved to N+1. Check `Versions.props` iteration on `main`. If it's > N, use the release branch or tag for N instead.
-
-### 2. For each active milestone
-
-Process milestones in order (lowest to highest). Each active milestone keeps its own long-lived branch and PR for the lifetime of that release draft.
+Process targets in array order. Each target has its own long-lived `branch_features` and PR for the lifetime of that release draft.
 
 #### a. Regenerate changes.json
 
-Always regenerate — the content may have changed since the previous run.
+Always regenerate — VMR content may have changed since the previous run. Use the refs from `target.json`:
 
 ```bash
-mkdir -p release-notes/11.0/preview/preview4
+mkdir -p "$content_dir"
 release-notes generate changes /tmp/dotnet \
-  --base v11.0.0-preview.3.26210.100 \
-  --head main \
-  --version "11.0.0-preview.4" \
+  --base "$vmr_base_tag" \
+  --head "$vmr_head_ref" \
+  --version "<major>.0-<milestone>" \
   --labels \
-  --output release-notes/11.0/preview/preview4/changes.json
+  --output "$content_dir/changes.json"
 ```
+
+For example, with the target shown above: `--base v11.0.0-preview.2 --head main --version "11.0.0-preview.3" --output release-notes/11.0/preview/preview3/changes.json`.
 
 #### b. Generate or refresh features.json
 
@@ -685,7 +809,7 @@ Start by scanning `changes.json` for explicit revert titles:
 
 ```bash
 jq -r '.changes[] | select(.title | test("(?i)^(partial(ly)?\\s+)?revert\\b|\\bback out\\b")) | [.repo, .title, .url] | @tsv' \
-  release-notes/11.0/preview/preview4/changes.json
+  "$content_dir/changes.json"
 ```
 
 Then, for each section-worthy candidate, search the source repo for later merged
@@ -731,11 +855,11 @@ Default to features that make sense to roughly **80% of the audience**. Speciali
 
 #### d. Check for human edits on the branch
 
-If a PR branch already exists:
+If the `branch_features` already exists on origin:
 
 ```bash
 # What has changed on the branch since we last pushed?
-git log --oneline --decorate origin/release-notes/11.0-preview4
+git log --oneline --decorate "origin/$branch_features"
 ```
 
 Treat branch history as **provenance**, not just diff noise.
@@ -826,27 +950,27 @@ Ask for file + heading + issue + suggested rewrite, not generic preference. Then
 
 #### i. Prepare the publication manifest
 
-- **No PR exists for this release** → create branch `release-notes/11.0-preview4`, commit your changes locally, then write `/tmp/gh-aw/agent/publish/release-notes-11.0-preview4.json` with `branch`, `title`, and `body`
-- **PR already exists for this release** → reuse that exact branch, commit the updates locally, then write or update the matching manifest with `branch` and a `comment` summarizing what changed; the workflow will reuse the existing PR and post the comment after you finish
+- **No PR exists for this target** → create local branch `$branch_features`, commit your changes locally, then write `/tmp/gh-aw/agent/publish/<branch_features_filename>.json` (replace `/` in the branch name with `-` for the filename) with `branch`, `title`, and `body`
+- **PR already exists for this target** → reuse that exact `branch_features`, commit the updates locally, then write or update the matching manifest with `branch` and a `comment` summarizing what changed; the workflow will reuse the existing PR and post the comment after you finish
 
-Branch identity is release-scoped. Do **not** mint a fresh branch name for a rerun of the same release just because the workflow ran again on a later day.
+Branch identity is fixed by `target.branch_features`. Do **not** mint a fresh branch name for a rerun of the same target. Do **not** reuse any legacy branch even if it appears to contain related content — copy the relevant content into `branch_features` instead.
 
-PR title format: `[release-notes] .NET 11 Preview 4`
+PR title format: `[release-notes] .NET <major_flat> <Capitalized milestone with space>` — for example, `[release-notes] .NET 11 Preview 3`.
 
-PR body should summarize: milestone, number of changes, which component files were written/updated, and any open questions or items needing human review.
+PR body should summarize: target milestone, number of changes, which component files were written/updated, and any open questions or items needing human review.
 
-Manifest example:
+Manifest example (target is `release-notes/dotnet-11-preview-3-features`):
 
 ```json
 {
-  "branch": "release-notes/11.0-preview4",
-  "title": "[release-notes] .NET 11 Preview 4",
-  "body": "Draft release notes for .NET 11 Preview 4.\n\n- changes.json regenerated from v11.0.0-preview.3 to the current Preview 4 head\n- Updated runtime.md and aspnetcore.md\n- Open question: benchmark data still needed for the JIT section",
-  "comment": "Updated changes.json, refreshed features.json scores, preserved the human-written intro, and addressed the latest review feedback."
+  "branch": "release-notes/dotnet-11-preview-3-features",
+  "title": "[release-notes] .NET 11 Preview 3",
+  "body": "Draft release notes for .NET 11 Preview 3.\n\n- changes.json generated from v11.0.0-preview.2 to main\n- Updated runtime.md and aspnetcore.md\n- Open question: benchmark data still needed for the JIT section",
+  "comment": "Refreshed changes.json, updated features.json scores, preserved the human-written intro, and addressed the latest review feedback."
 }
 ```
 
-This publication manifest is **required**. A run that edits files for an active milestone is not complete until it has written a manifest for every changed release-notes branch so the workflow can publish it after agent execution.
+This publication manifest is **required**. A run that edits files for an active target is not complete until it has written a manifest for every changed `branch_features` so the workflow can publish it after agent execution.
 
 ### 3. Handle transitions
 
