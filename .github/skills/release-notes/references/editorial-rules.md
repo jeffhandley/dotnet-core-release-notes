@@ -42,9 +42,12 @@ Tone, attribution, and content guidelines for .NET release notes.
   - ✅ `## System.Text.Json offers more control over naming and ignore defaults`
   - ✅ `## Regex recognizes all Unicode newline sequences`
   - ❌ `## System.Text.Json gets more control over naming and ignore defaults`
-- Avoid anthropomorphic or club-like transition verbs such as `joins` when a more literal term is available. Prefer `moves to`, `is now in`, `adds support for`, or `supports`.
+- Avoid anthropomorphic or club-like transition verbs such as `joins` or `gains` when a more literal term is available — features and components do not have agency. Prefer `moves to`, `is now in`, `adds support for`, `supports`, `now includes`, `has been updated to`, or `is updated to`.
   - ✅ `## Zstandard moved to System.IO.Compression and ZIP reads validate CRC32`
+  - ✅ `The Virtualize<TItem> component now supports variable-height items for its AnchorMode parameter.`
+  - ✅ `Virtualize<TItem> has been updated to anchor scroll position correctly when items have varying heights.`
   - ❌ `## Zstandard joins System.IO.Compression and ZIP reads validate CRC32`
+  - ❌ `The Virtualize<TItem> component gains variable-height support for its AnchorMode parameter.`
 - Use the **established feature name** when one exists, especially for long-running preview features. If `release-notes/features.json` lists an `official_name`, use that in headings and prose. Treat aliases as match-only metadata, not as the default wording.
   - ✅ `## Unsafe Evolution remains a preview feature in .NET 11`
   - ✅ `## Unsafe Evolution adds clearer diagnostics in Preview 3`
@@ -63,6 +66,12 @@ Tone, attribution, and content guidelines for .NET release notes.
 
 - **Shared audience filter** — apply the 80/20 rule from `editorial-scoring`; don't redefine a competing threshold here. Keep narrower items only when the broader audience can still see why they matter.
 - **The two-sentence test** — if you can only write two sentences about a feature, it's probably an engineering fix, not a feature. Cut it. A community contribution or breaking change can lift a borderline entry, but "fixed an internal bug that happened to be visible" is not a feature.
+- **Bug-fix titles are bug fixes by default** — if the PR title starts with or contains `Fix`, `Fixed`, `Fixes`, `bugfix`, `correct`, `resolve`, or describes patching incorrect behavior, treat the change as a bug fix and route it to the **Bug fixes** section. Do **not** promote it into a top-level feature heading, do **not** dress it up with a feature-style heading (e.g. "`Component X` security fix" or "`Component X` reliability fix"), and do **not** include "fix" in the heading. Override this default only when **all three** of the following are true:
+  1. The change introduces a new public API surface, a new user-visible option, or a new default behavior — not just corrected existing behavior.
+  2. A typical upgrader needs to know about it (not just the small set of users who hit the original bug).
+  3. You can write more than two sentences of meaningful guidance — what to do with it, when to use it, what changes for the reader.
+  If any of those fail, the entry belongs in **Bug fixes**.
+- **Security and reliability work is usually a bug fix** — CVE-class fixes, input-validation hardening, and crash/hang/leak repairs almost always belong in the Bug fixes section. Lift them into a feature heading only when the work *also* introduces a new public option or a new default behavior the reader should know about.
 - **Headlines should convey value** — a heading like "GC regions on macOS" doesn't tell the reader whether this is good or bad. Prefer headings that hint at the benefit: "GC regions enabled on macOS" or "Server GC memory model now available on macOS."
 - **Product-boundary rule** — exclude higher-level IDE, editor, or design-time tooling features from product notes unless the release is specifically about that tooling surface. For example, a Razor editor code action should not be presented as an ASP.NET Core feature just because it is adjacent to the web stack.
 - **TODO for borderline entries** — when a feature might deserve inclusion but you lack data to justify it (benchmark numbers, real-world impact, user demand), keep the entry but add an HTML `<!-- TODO -->` comment asking for the missing information. This is better than silently including a vague claim or silently cutting something that might matter. The TODO should state what's needed and link to the PR where the data might live.
