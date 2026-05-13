@@ -1,0 +1,296 @@
+name: Preload release-notes context
+description: >-
+  Downloads the release-notes-gen tool, clones the dotnet VMR, preloads open
+  release-notes PRs and their comments, snapshots existing release-notes/*
+  branches, and computes the active target milestone(s) into target.json.
+  Writes everything under /tmp/gh-aw/agent/ for the agent to consume.
+
+inputs:
+  milestone:
+    description: >-
+      Override the natural successor milestone. Empty means auto-derive from
+      releases-index.json. Use 'rc1' or 'ga' for phase-boundary transitions.
+    required: false
+    default: ""
+  github-token:
+    description: Token used to clone this repo's origin and call the GitHub API for PR/comment preload.
+    required: true
+  release-notes-gen-artifact:
+    description: Name of the workflow artifact that contains the release-notes-gen binary.
+    required: false
+    default: release-notes-gen-tool
+  release-notes-gen-path:
+    description: Where to extract the release-notes-gen binary and add to PATH.
+    required: false
+    default: /tmp/release-notes-gen-tool
+  vmr-clone-path:
+    description: Where to clone the dotnet/dotnet VMR.
+    required: false
+    default: /tmp/dotnet
+  agent-context-dir:
+    description: Directory where preloaded context is written for the agent to consume.
+    required: false
+    default: /tmp/gh-aw/agent
+
+runs:
+  using: composite
+  steps:
+    - name: Download release-notes-gen tool
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      with:
+        name: ${{ inputs.release-notes-gen-artifact }}
+        path: ${{ inputs.release-notes-gen-path }}
+
+    - name: Prepare release-notes-gen
+      shell: bash
+      env:
+        BIN_DIR: ${{ inputs.release-notes-gen-path }}
+      run: |
+        chmod +x "$BIN_DIR/release-notes-gen"
+        echo "$BIN_DIR" >> "$GITHUB_PATH"
+
+    - name: Verify release-notes-gen is available
+      shell: bash
+      env:
+        BIN_DIR: ${{ inputs.release-notes-gen-path }}
+      run: |
+        # GITHUB_PATH only takes effect in subsequent steps; check the file directly.
+        test -x "$BIN_DIR/release-notes-gen"
+
+    - name: Clone dotnet VMR
+      shell: bash
+      env:
+        VMR_PATH: ${{ inputs.vmr-clone-path }}
+      run: |
+        git clone --filter=blob:none https://github.com/dotnet/dotnet "$VMR_PATH"
+
+    - name: Verify dotnet VMR clone
+      shell: bash
+      env:
+        VMR_PATH: ${{ inputs.vmr-clone-path }}
+      run: |
+        git -C "$VMR_PATH" rev-parse --verify HEAD >/dev/null
+
+    - name: Configure git credentials for context preload
+      shell: bash
+      env:
+        REPO_NAME: ${{ github.repository }}
+        SERVER_URL: ${{ github.server_url }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        SERVER_URL_STRIPPED="${SERVER_URL#https://}"
+        git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@${SERVER_URL_STRIPPED}/${REPO_NAME}.git"
+
+    - name: Preload release-notes GitHub context
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        AGENT_DIR: ${{ inputs.agent-context-dir }}
+      run: |
+        set -euo pipefail
+        mkdir -p "$AGENT_DIR/pr-comments" "$AGENT_DIR/publish"
+
+        gh pr list \
+          --repo "$GITHUB_REPOSITORY" \
+          --search "[release-notes] in:title" \
+          --state all \
+          --limit 100 \
+          --json number,title,body,headRefName,baseRefName,state,isDraft,url,updatedAt,author \
+          > "$AGENT_DIR/release-notes-prs.json"
+
+        : > "$AGENT_DIR/release-notes-branches.txt"
+        while IFS= read -r ref; do
+          [ -n "$ref" ] || continue
+          branch="${ref#refs/heads/}"
+          git fetch --no-tags origin "${ref}:refs/remotes/origin/${branch}"
+          printf 'origin/%s\n' "$branch" >> "$AGENT_DIR/release-notes-branches.txt"
+        done < <(git ls-remote --heads origin 'release-notes/*' | awk '{print $2}')
+
+        jq -r '.[] | select(.state == "OPEN") | [.number] | @tsv' "$AGENT_DIR/release-notes-prs.json" |
+        while IFS=$'\t' read -r pr; do
+          gh api "repos/$GITHUB_REPOSITORY/issues/$pr/comments?per_page=100" > "$AGENT_DIR/pr-comments/${pr}-issue-comments.json"
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$pr/comments?per_page=100" > "$AGENT_DIR/pr-comments/${pr}-review-comments.json"
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$pr/reviews?per_page=100" > "$AGENT_DIR/pr-comments/${pr}-reviews.json"
+        done
+
+        jq -n \
+          --arg prs "$AGENT_DIR/release-notes-prs.json" \
+          --arg branches "$AGENT_DIR/release-notes-branches.txt" \
+          --arg comment_dir "$AGENT_DIR/pr-comments" \
+          --arg publish_dir "$AGENT_DIR/publish" \
+          --arg target "$AGENT_DIR/target.json" \
+          --arg components "$AGENT_DIR/components.json" \
+          '{
+            release_notes_prs: $prs,
+            release_notes_branches: $branches,
+            pr_comment_directory: $comment_dir,
+            publish_directory: $publish_dir,
+            target: $target,
+            components: $components
+          }' > "$AGENT_DIR/context-index.json"
+
+    - name: Compute target milestone
+      shell: bash
+      env:
+        INPUTS_MILESTONE: ${{ inputs.milestone }}
+        AGENT_DIR: ${{ inputs.agent-context-dir }}
+      run: |
+        set -euo pipefail
+        mkdir -p "$AGENT_DIR"
+
+        INDEX_PATH=release-notes/releases-index.json
+        COMPONENTS_PATH=release-notes/components.json
+
+        # Helper: compute successor milestone label from "latest-release"
+        #   11.0.0-preview.2 -> preview3
+        #   11.0.0-rc.1      -> rc2
+        #   anything else    -> empty (caller must skip or override)
+        succ_milestone() {
+          local latest="$1"
+          if [[ "$latest" =~ -preview\.([0-9]+) ]]; then
+            echo "preview$((BASH_REMATCH[1] + 1))"
+            return
+          fi
+          if [[ "$latest" =~ -rc\.([0-9]+) ]]; then
+            echo "rc$((BASH_REMATCH[1] + 1))"
+            return
+          fi
+          echo ""
+        }
+
+        # Helper: "preview3" -> "preview-3", "rc1" -> "rc-1", "ga" -> "ga"
+        to_branch_label() {
+          local m="$1"
+          if [[ "$m" =~ ^(preview|rc)([0-9]+)$ ]]; then
+            echo "${BASH_REMATCH[1]}-${BASH_REMATCH[2]}"
+          else
+            echo "$m"
+          fi
+        }
+
+        # Helper: "preview3" -> "preview", "rc1" -> "rc", "ga" -> "ga"
+        to_phase_dir() {
+          local m="$1"
+          if [[ "$m" =~ ^(preview|rc)[0-9]+$ ]]; then
+            echo "${BASH_REMATCH[1]}"
+          else
+            echo "$m"
+          fi
+        }
+
+        # Extract milestone token (no hyphen) from a release version string.
+        # e.g. "11.0.0-preview.4" -> "preview4", "11.0.0-rc.1" -> "rc1".
+        last_shipped_milestone() {
+          local v="$1"
+          if [[ "$v" =~ -(preview|rc)\.([0-9]+)$ ]]; then
+            echo "${BASH_REMATCH[1]}${BASH_REMATCH[2]}"
+          else
+            echo ""
+          fi
+        }
+
+        # Extract the SDK feature band from a latest-sdk string.
+        # e.g. "11.0.100-preview.4.26230.115" -> "1", "10.0.200-rtm" -> "2".
+        sdk_band_from() {
+          local s="$1"
+          if [[ "$s" =~ ^[0-9]+\.[0-9]+\.([0-9])[0-9][0-9] ]]; then
+            echo "${BASH_REMATCH[1]}"
+          else
+            echo ""
+          fi
+        }
+
+        targets="[]"
+        while IFS=$'\t' read -r channel latest_release latest_sdk support_phase; do
+          [ -n "$channel" ] || continue
+
+          if [ -n "$INPUTS_MILESTONE" ]; then
+            natural=$(succ_milestone "$latest_release")
+            if [ "$INPUTS_MILESTONE" != "$natural" ]; then
+              case "$INPUTS_MILESTONE" in
+                rc1)
+                  if [[ ! "$latest_release" =~ -preview\.[0-9]+$ ]]; then
+                    echo "::error::Override 'rc1' requires latest-release to be a preview; saw $latest_release"
+                    exit 1
+                  fi
+                  ;;
+                ga)
+                  if [[ ! "$latest_release" =~ -rc\.[0-9]+$ ]]; then
+                    echo "::error::Override 'ga' requires latest-release to be an rc; saw $latest_release"
+                    exit 1
+                  fi
+                  ;;
+                *)
+                  echo "::error::Override '$INPUTS_MILESTONE' is not a valid successor of $latest_release (natural successor is '$natural'); only natural successors or 'rc1'/'ga' boundary transitions are permitted"
+                  exit 1
+                  ;;
+              esac
+            fi
+            milestone="$INPUTS_MILESTONE"
+          else
+            milestone=$(succ_milestone "$latest_release")
+          fi
+
+          if [ -z "$milestone" ]; then
+            echo "::notice::Skipping $channel — no automatic successor for $latest_release. Use the workflow_dispatch 'milestone' input for phase-boundary transitions (rc1, ga)."
+            continue
+          fi
+
+          major_flat="${channel%.*}"
+          milestone_label=$(to_branch_label "$milestone")
+          phase_dir=$(to_phase_dir "$milestone")
+          last_milestone_token=$(last_shipped_milestone "$latest_release")
+          sdk_band=$(sdk_band_from "$latest_sdk")
+
+          if [ -z "$last_milestone_token" ] || [ -z "$sdk_band" ]; then
+            echo "::error::Cannot derive VMR base ref for $channel (latest_release=$latest_release, latest_sdk=$latest_sdk)"
+            exit 1
+          fi
+
+          target=$(jq -n \
+            --arg major "$channel" \
+            --arg major_flat "$major_flat" \
+            --arg milestone "$milestone" \
+            --arg milestone_label "$milestone_label" \
+            --arg last_shipped "$latest_release" \
+            --arg last_milestone_token "$last_milestone_token" \
+            --arg sdk_band "$sdk_band" \
+            --arg phase "$support_phase" \
+            --arg phase_dir "$phase_dir" \
+            '{
+              major: $major,
+              major_flat: $major_flat,
+              milestone: $milestone,
+              milestone_branch_label: $milestone_label,
+              last_shipped: $last_shipped,
+              support_phase: $phase,
+              branch_features: "release-notes/dotnet-\($major_flat)-\($milestone_label)-features",
+              content_dir: "release-notes/\($major)/\($phase_dir)/\($milestone)",
+              vmr_base_tag: "release/\($major).\($sdk_band)xx-\($last_milestone_token)",
+              vmr_head_ref: "main"
+            }')
+          targets=$(jq --argjson t "$target" '. += [$t]' <<<"$targets")
+        done < <(jq -r '."releases-index"[] | select(."support-phase" == "preview" or ."support-phase" == "go-live") | [."channel-version", ."latest-release", ."latest-sdk", ."support-phase"] | @tsv' "$INDEX_PATH")
+
+        # Invariant: at most one active milestone per major.
+        dup=$(jq -r '[.[].major] | group_by(.) | map(select(length > 1)) | length' <<<"$targets")
+        if [ "$dup" -gt 0 ]; then
+          echo "::error::Invariant violated — more than one active milestone per major:"
+          jq '.' <<<"$targets"
+          exit 1
+        fi
+
+        echo "$targets" | jq '.' > "$AGENT_DIR/target.json"
+        cp "$COMPONENTS_PATH" "$AGENT_DIR/components.json"
+
+        summary="${GITHUB_STEP_SUMMARY:-/dev/null}"
+        {
+          echo "## Computed targets"
+          echo ""
+          echo '```json'
+          cat "$AGENT_DIR/target.json"
+          echo '```'
+        } >> "$summary"
+
+        echo "Computed targets:"
+        cat "$AGENT_DIR/target.json"

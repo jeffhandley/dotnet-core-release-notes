@@ -1,4 +1,4 @@
-# gh-aw-metadata: {"schema_version":"v3","frontmatter_hash":"32443d2b9ae7da726212ab2063e9be5468f951bfaf874803e00c0d24097bf586","compiler_version":"v0.67.1","strict":true,"agent_id":"copilot"}
+# gh-aw-metadata: {"schema_version":"v3","frontmatter_hash":"2b2ced0f80286e8100f67c6ca4457351687c7fb9204fa4eb7c5d52e21fcbf0bc","compiler_version":"v0.67.1","strict":true,"agent_id":"copilot"}
 #    ___                   _   _      
 #   / _ \                 | | (_)     
 #  | |_| | __ _  ___ _ __ | |_ _  ___ 
@@ -193,20 +193,20 @@ jobs:
         run: |
           bash ${RUNNER_TEMP}/gh-aw/actions/create_prompt_first.sh
           {
-          cat << 'GH_AW_PROMPT_ae3b6c90f32961ee_EOF'
+          cat << 'GH_AW_PROMPT_bc2f206bcdbd849f_EOF'
           <system>
-          GH_AW_PROMPT_ae3b6c90f32961ee_EOF
+          GH_AW_PROMPT_bc2f206bcdbd849f_EOF
           cat "${RUNNER_TEMP}/gh-aw/prompts/xpia.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/temp_folder_prompt.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/markdown.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/safe_outputs_prompt.md"
-          cat << 'GH_AW_PROMPT_ae3b6c90f32961ee_EOF'
+          cat << 'GH_AW_PROMPT_bc2f206bcdbd849f_EOF'
           <safe-output-tools>
           Tools: add_comment(max:20), create_pull_request(max:5), push_to_pull_request_branch(max:5), missing_tool, missing_data, noop
-          GH_AW_PROMPT_ae3b6c90f32961ee_EOF
+          GH_AW_PROMPT_bc2f206bcdbd849f_EOF
           cat "${RUNNER_TEMP}/gh-aw/prompts/safe_outputs_create_pull_request.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/safe_outputs_push_to_pr_branch.md"
-          cat << 'GH_AW_PROMPT_ae3b6c90f32961ee_EOF'
+          cat << 'GH_AW_PROMPT_bc2f206bcdbd849f_EOF'
           </safe-output-tools>
           <github-context>
           The following GitHub context information is available for this workflow:
@@ -236,12 +236,12 @@ jobs:
           {{/if}}
           </github-context>
           
-          GH_AW_PROMPT_ae3b6c90f32961ee_EOF
+          GH_AW_PROMPT_bc2f206bcdbd849f_EOF
           cat "${RUNNER_TEMP}/gh-aw/prompts/github_mcp_tools_with_safeoutputs_prompt.md"
-          cat << 'GH_AW_PROMPT_ae3b6c90f32961ee_EOF'
+          cat << 'GH_AW_PROMPT_bc2f206bcdbd849f_EOF'
           </system>
           {{#runtime-import .github/workflows/release-notes.md}}
-          GH_AW_PROMPT_ae3b6c90f32961ee_EOF
+          GH_AW_PROMPT_bc2f206bcdbd849f_EOF
           } > "$GH_AW_PROMPT"
       - name: Interpolate variables and render templates
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
@@ -366,38 +366,11 @@ jobs:
         run: bash ${RUNNER_TEMP}/gh-aw/actions/configure_gh_for_ghe.sh
         env:
           GH_TOKEN: ${{ github.token }}
-      - name: Download release-notes-gen tool
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - name: Preload release-notes context
+        uses: ./.github/actions/release-notes-preload
         with:
-          name: release-notes-gen-tool
-          path: /tmp/release-notes-gen-tool
-      - name: Prepare release-notes-gen
-        run: |
-          chmod +x /tmp/release-notes-gen-tool/release-notes-gen
-          echo /tmp/release-notes-gen-tool >> "$GITHUB_PATH"
-      - name: Verify release-notes-gen is available
-        run: |
-          command -v release-notes-gen >/dev/null
-      - name: Clone dotnet VMR
-        run: |
-          git clone --filter=blob:none https://github.com/dotnet/dotnet /tmp/dotnet
-      - name: Verify dotnet VMR clone
-        run: |
-          git -C /tmp/dotnet rev-parse --verify HEAD >/dev/null
-      - env:
-          GITHUB_TOKEN: ${{ github.token }}
-          REPO_NAME: ${{ github.repository }}
-          SERVER_URL: ${{ github.server_url }}
-        name: Configure git credentials for context preload
-        run: "SERVER_URL_STRIPPED=\"${SERVER_URL#https://}\"\ngit remote set-url origin \"https://x-access-token:${GITHUB_TOKEN}@${SERVER_URL_STRIPPED}/${REPO_NAME}.git\"\n"
-      - env:
-          GH_TOKEN: ${{ github.token }}
-        name: Preload release-notes GitHub context
-        run: "set -euo pipefail\nmkdir -p /tmp/gh-aw/agent/pr-comments /tmp/gh-aw/agent/publish\n\ngh pr list \\\n  --repo \"$GITHUB_REPOSITORY\" \\\n  --search \"[release-notes] in:title\" \\\n  --state all \\\n  --limit 100 \\\n  --json number,title,body,headRefName,baseRefName,state,isDraft,url,updatedAt,author \\\n  > /tmp/gh-aw/agent/release-notes-prs.json\n\n: > /tmp/gh-aw/agent/release-notes-branches.txt\nwhile IFS= read -r ref; do\n  [ -n \"$ref\" ] || continue\n  branch=\"${ref#refs/heads/}\"\n  git fetch --no-tags origin \"${ref}:refs/remotes/origin/${branch}\"\n  printf 'origin/%s\\n' \"$branch\" >> /tmp/gh-aw/agent/release-notes-branches.txt\ndone < <(git ls-remote --heads origin 'release-notes/*' | awk '{print $2}')\n\njq -r '.[] | select(.state == \"OPEN\") | [.number] | @tsv' /tmp/gh-aw/agent/release-notes-prs.json |\nwhile IFS=$'\\t' read -r pr; do\n  gh api \"repos/$GITHUB_REPOSITORY/issues/$pr/comments?per_page=100\" > \"/tmp/gh-aw/agent/pr-comments/${pr}-issue-comments.json\"\n  gh api \"repos/$GITHUB_REPOSITORY/pulls/$pr/comments?per_page=100\" > \"/tmp/gh-aw/agent/pr-comments/${pr}-review-comments.json\"\n  gh api \"repos/$GITHUB_REPOSITORY/pulls/$pr/reviews?per_page=100\" > \"/tmp/gh-aw/agent/pr-comments/${pr}-reviews.json\"\ndone\n\njq -n \\\n  --arg prs \"/tmp/gh-aw/agent/release-notes-prs.json\" \\\n  --arg branches \"/tmp/gh-aw/agent/release-notes-branches.txt\" \\\n  --arg comment_dir \"/tmp/gh-aw/agent/pr-comments\" \\\n  --arg publish_dir \"/tmp/gh-aw/agent/publish\" \\\n  --arg target \"/tmp/gh-aw/agent/target.json\" \\\n  --arg components \"/tmp/gh-aw/agent/components.json\" \\\n  '{\n    release_notes_prs: $prs,\n    release_notes_branches: $branches,\n    pr_comment_directory: $comment_dir,\n    publish_directory: $publish_dir,\n    target: $target,\n    components: $components\n  }' > /tmp/gh-aw/agent/context-index.json\n"
-      - env:
-          INPUTS_MILESTONE: ${{ github.event.inputs.milestone }}
-        name: Compute target milestone
-        run: "set -euo pipefail\nmkdir -p /tmp/gh-aw/agent\n\nINDEX_PATH=release-notes/releases-index.json\nCOMPONENTS_PATH=release-notes/components.json\n\n# Helper: compute successor milestone label from \"latest-release\"\n#   11.0.0-preview.2 -> preview3\n#   11.0.0-rc.1      -> rc2\n#   anything else    -> empty (caller must skip or override)\nsucc_milestone() {\n  local latest=\"$1\"\n  if [[ \"$latest\" =~ -preview\\.([0-9]+) ]]; then\n    echo \"preview$((BASH_REMATCH[1] + 1))\"\n    return\n  fi\n  if [[ \"$latest\" =~ -rc\\.([0-9]+) ]]; then\n    echo \"rc$((BASH_REMATCH[1] + 1))\"\n    return\n  fi\n  echo \"\"\n}\n\n# Helper: \"preview3\" -> \"preview-3\", \"rc1\" -> \"rc-1\", \"ga\" -> \"ga\"\nto_branch_label() {\n  local m=\"$1\"\n  if [[ \"$m\" =~ ^(preview|rc)([0-9]+)$ ]]; then\n    echo \"${BASH_REMATCH[1]}-${BASH_REMATCH[2]}\"\n  else\n    echo \"$m\"\n  fi\n}\n\n# Helper: \"preview3\" -> \"preview\", \"rc1\" -> \"rc\", \"ga\" -> \"ga\"\nto_phase_dir() {\n  local m=\"$1\"\n  if [[ \"$m\" =~ ^(preview|rc)[0-9]+$ ]]; then\n    echo \"${BASH_REMATCH[1]}\"\n  else\n    echo \"$m\"\n  fi\n}\n\n# Extract milestone token (no hyphen) from a release version string.\n# e.g. \"11.0.0-preview.4\" -> \"preview4\", \"11.0.0-rc.1\" -> \"rc1\".\nlast_shipped_milestone() {\n  local v=\"$1\"\n  if [[ \"$v\" =~ -(preview|rc)\\.([0-9]+)$ ]]; then\n    echo \"${BASH_REMATCH[1]}${BASH_REMATCH[2]}\"\n  else\n    echo \"\"\n  fi\n}\n\n# Extract the SDK feature band from a latest-sdk string.\n# e.g. \"11.0.100-preview.4.26230.115\" -> \"1\", \"10.0.200-rtm\" -> \"2\".\nsdk_band_from() {\n  local s=\"$1\"\n  if [[ \"$s\" =~ ^[0-9]+\\.[0-9]+\\.([0-9])[0-9][0-9] ]]; then\n    echo \"${BASH_REMATCH[1]}\"\n  else\n    echo \"\"\n  fi\n}\n\ntargets=\"[]\"\nwhile IFS=$'\\t' read -r channel latest_release latest_sdk support_phase; do\n  [ -n \"$channel\" ] || continue\n\n  if [ -n \"$INPUTS_MILESTONE\" ]; then\n    natural=$(succ_milestone \"$latest_release\")\n    if [ \"$INPUTS_MILESTONE\" != \"$natural\" ]; then\n      case \"$INPUTS_MILESTONE\" in\n        rc1)\n          if [[ ! \"$latest_release\" =~ -preview\\.[0-9]+$ ]]; then\n            echo \"::error::Override 'rc1' requires latest-release to be a preview; saw $latest_release\"\n            exit 1\n          fi\n          ;;\n        ga)\n          if [[ ! \"$latest_release\" =~ -rc\\.[0-9]+$ ]]; then\n            echo \"::error::Override 'ga' requires latest-release to be an rc; saw $latest_release\"\n            exit 1\n          fi\n          ;;\n        *)\n          echo \"::error::Override '$INPUTS_MILESTONE' is not a valid successor of $latest_release (natural successor is '$natural'); only natural successors or 'rc1'/'ga' boundary transitions are permitted\"\n          exit 1\n          ;;\n      esac\n    fi\n    milestone=\"$INPUTS_MILESTONE\"\n  else\n    milestone=$(succ_milestone \"$latest_release\")\n  fi\n\n  if [ -z \"$milestone\" ]; then\n    echo \"::notice::Skipping $channel — no automatic successor for $latest_release. Use the workflow_dispatch 'milestone' input for phase-boundary transitions (rc1, ga).\"\n    continue\n  fi\n\n  major_flat=\"${channel%.*}\"\n  milestone_label=$(to_branch_label \"$milestone\")\n  phase_dir=$(to_phase_dir \"$milestone\")\n  last_milestone_token=$(last_shipped_milestone \"$latest_release\")\n  sdk_band=$(sdk_band_from \"$latest_sdk\")\n\n  if [ -z \"$last_milestone_token\" ] || [ -z \"$sdk_band\" ]; then\n    echo \"::error::Cannot derive VMR base ref for $channel (latest_release=$latest_release, latest_sdk=$latest_sdk)\"\n    exit 1\n  fi\n\n  target=$(jq -n \\\n    --arg major \"$channel\" \\\n    --arg major_flat \"$major_flat\" \\\n    --arg milestone \"$milestone\" \\\n    --arg milestone_label \"$milestone_label\" \\\n    --arg last_shipped \"$latest_release\" \\\n    --arg last_milestone_token \"$last_milestone_token\" \\\n    --arg sdk_band \"$sdk_band\" \\\n    --arg phase \"$support_phase\" \\\n    --arg phase_dir \"$phase_dir\" \\\n    '{\n      major: $major,\n      major_flat: $major_flat,\n      milestone: $milestone,\n      milestone_branch_label: $milestone_label,\n      last_shipped: $last_shipped,\n      support_phase: $phase,\n      branch_features: \"release-notes/dotnet-\\($major_flat)-\\($milestone_label)-features\",\n      content_dir: \"release-notes/\\($major)/\\($phase_dir)/\\($milestone)\",\n      vmr_base_tag: \"release/\\($major).\\($sdk_band)xx-\\($last_milestone_token)\",\n      vmr_head_ref: \"main\"\n    }')\n  targets=$(jq --argjson t \"$target\" '. += [$t]' <<<\"$targets\")\ndone < <(jq -r '.\"releases-index\"[] | select(.\"support-phase\" == \"preview\" or .\"support-phase\" == \"go-live\") | [.\"channel-version\", .\"latest-release\", .\"latest-sdk\", .\"support-phase\"] | @tsv' \"$INDEX_PATH\")\n\n# Invariant: at most one active milestone per major.\ndup=$(jq -r '[.[].major] | group_by(.) | map(select(length > 1)) | length' <<<\"$targets\")\nif [ \"$dup\" -gt 0 ]; then\n  echo \"::error::Invariant violated — more than one active milestone per major:\"\n  jq '.' <<<\"$targets\"\n  exit 1\nfi\n\necho \"$targets\" | jq '.' > /tmp/gh-aw/agent/target.json\ncp \"$COMPONENTS_PATH\" /tmp/gh-aw/agent/components.json\n\nsummary=\"${GITHUB_STEP_SUMMARY:-/dev/null}\"\n{\n  echo \"## Computed targets\"\n  echo \"\"\n  echo '```json'\n  cat /tmp/gh-aw/agent/target.json\n  echo '```'\n} >> \"$summary\"\n\necho \"Computed targets:\"\ncat /tmp/gh-aw/agent/target.json\n"
+          github-token: ${{ github.token }}
+          milestone: ${{ github.event.inputs.milestone }}
 
       - name: Configure Git credentials
         env:
@@ -449,12 +422,12 @@ jobs:
           mkdir -p ${RUNNER_TEMP}/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_67abae0423dce33d_EOF'
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_f18b3e7ff16b223d_EOF'
           {"add_comment":{"max":20,"target":"*"},"create_pull_request":{"draft":true,"labels":["area-release-notes","automation"],"max":5,"max_patch_size":1024,"protected_files":["package.json","bun.lockb","bunfig.toml","deno.json","deno.jsonc","deno.lock","global.json","NuGet.Config","Directory.Packages.props","mix.exs","mix.lock","go.mod","go.sum","stack.yaml","stack.yaml.lock","pom.xml","build.gradle","build.gradle.kts","settings.gradle","settings.gradle.kts","gradle.properties","package-lock.json","yarn.lock","pnpm-lock.yaml","npm-shrinkwrap.json","requirements.txt","Pipfile","Pipfile.lock","pyproject.toml","setup.py","setup.cfg","Gemfile","Gemfile.lock","uv.lock","CODEOWNERS"],"protected_path_prefixes":[".github/",".agents/"],"title_prefix":"[release-notes] "},"create_report_incomplete_issue":{},"missing_data":{},"missing_tool":{},"noop":{"max":1,"report-as-issue":"true"},"push_to_pull_request_branch":{"if_no_changes":"warn","labels":["area-release-notes","automation"],"max":5,"max_patch_size":1024,"protected_files":["package.json","bun.lockb","bunfig.toml","deno.json","deno.jsonc","deno.lock","global.json","NuGet.Config","Directory.Packages.props","mix.exs","mix.lock","go.mod","go.sum","stack.yaml","stack.yaml.lock","pom.xml","build.gradle","build.gradle.kts","settings.gradle","settings.gradle.kts","gradle.properties","package-lock.json","yarn.lock","pnpm-lock.yaml","npm-shrinkwrap.json","requirements.txt","Pipfile","Pipfile.lock","pyproject.toml","setup.py","setup.cfg","Gemfile","Gemfile.lock","uv.lock","CODEOWNERS"],"protected_path_prefixes":[".github/",".agents/"],"title_prefix":"[release-notes] "},"report_incomplete":{}}
-          GH_AW_SAFE_OUTPUTS_CONFIG_67abae0423dce33d_EOF
+          GH_AW_SAFE_OUTPUTS_CONFIG_f18b3e7ff16b223d_EOF
       - name: Write Safe Outputs Tools
         run: |
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/tools_meta.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_META_010c1c0a2e81ef1e_EOF'
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/tools_meta.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_META_0726f57e4327c50d_EOF'
           {
             "description_suffixes": {
               "add_comment": " CONSTRAINTS: Maximum 20 comment(s) can be added. Target: *.",
@@ -464,8 +437,8 @@ jobs:
             "repo_params": {},
             "dynamic_tools": []
           }
-          GH_AW_SAFE_OUTPUTS_TOOLS_META_010c1c0a2e81ef1e_EOF
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/validation.json << 'GH_AW_SAFE_OUTPUTS_VALIDATION_b22ff99d38e1b001_EOF'
+          GH_AW_SAFE_OUTPUTS_TOOLS_META_0726f57e4327c50d_EOF
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/validation.json << 'GH_AW_SAFE_OUTPUTS_VALIDATION_aa3bc682052b7ba1_EOF'
           {
             "add_comment": {
               "defaultMax": 1,
@@ -615,7 +588,7 @@ jobs:
               }
             }
           }
-          GH_AW_SAFE_OUTPUTS_VALIDATION_b22ff99d38e1b001_EOF
+          GH_AW_SAFE_OUTPUTS_VALIDATION_aa3bc682052b7ba1_EOF
           node ${RUNNER_TEMP}/gh-aw/actions/generate_safe_outputs_tools.cjs
       - name: Generate Safe Outputs MCP Server Config
         id: safe-outputs-config
@@ -685,7 +658,7 @@ jobs:
           export MCP_GATEWAY_DOCKER_COMMAND='docker run -i --rm --network host -v /var/run/docker.sock:/var/run/docker.sock -e MCP_GATEWAY_PORT -e MCP_GATEWAY_DOMAIN -e MCP_GATEWAY_API_KEY -e MCP_GATEWAY_PAYLOAD_DIR -e MCP_GATEWAY_PAYLOAD_SIZE_THRESHOLD -e DEBUG -e MCP_GATEWAY_LOG_DIR -e GH_AW_MCP_LOG_DIR -e GH_AW_SAFE_OUTPUTS -e GH_AW_SAFE_OUTPUTS_CONFIG_PATH -e GH_AW_SAFE_OUTPUTS_TOOLS_PATH -e GH_AW_ASSETS_BRANCH -e GH_AW_ASSETS_MAX_SIZE_KB -e GH_AW_ASSETS_ALLOWED_EXTS -e DEFAULT_BRANCH -e GITHUB_MCP_SERVER_TOKEN -e GITHUB_MCP_GUARD_MIN_INTEGRITY -e GITHUB_MCP_GUARD_REPOS -e GITHUB_REPOSITORY -e GITHUB_SERVER_URL -e GITHUB_SHA -e GITHUB_WORKSPACE -e GITHUB_TOKEN -e GITHUB_RUN_ID -e GITHUB_RUN_NUMBER -e GITHUB_RUN_ATTEMPT -e GITHUB_JOB -e GITHUB_ACTION -e GITHUB_EVENT_NAME -e GITHUB_EVENT_PATH -e GITHUB_ACTOR -e GITHUB_ACTOR_ID -e GITHUB_TRIGGERING_ACTOR -e GITHUB_WORKFLOW -e GITHUB_WORKFLOW_REF -e GITHUB_WORKFLOW_SHA -e GITHUB_REF -e GITHUB_REF_NAME -e GITHUB_REF_TYPE -e GITHUB_HEAD_REF -e GITHUB_BASE_REF -e GH_AW_SAFE_OUTPUTS_PORT -e GH_AW_SAFE_OUTPUTS_API_KEY -v /tmp/gh-aw/mcp-payloads:/tmp/gh-aw/mcp-payloads:rw -v /opt:/opt:ro -v /tmp:/tmp:rw -v '"${GITHUB_WORKSPACE}"':'"${GITHUB_WORKSPACE}"':rw ghcr.io/github/gh-aw-mcpg:v0.2.14'
           
           mkdir -p /home/runner/.copilot
-          cat << GH_AW_MCP_CONFIG_31659e923abdb9f3_EOF | bash ${RUNNER_TEMP}/gh-aw/actions/start_mcp_gateway.sh
+          cat << GH_AW_MCP_CONFIG_fadcd87243be7ee0_EOF | bash ${RUNNER_TEMP}/gh-aw/actions/start_mcp_gateway.sh
           {
             "mcpServers": {
               "github": {
@@ -726,7 +699,7 @@ jobs:
               "payloadDir": "${MCP_GATEWAY_PAYLOAD_DIR}"
             }
           }
-          GH_AW_MCP_CONFIG_31659e923abdb9f3_EOF
+          GH_AW_MCP_CONFIG_fadcd87243be7ee0_EOF
       - name: Download activation artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
