@@ -806,7 +806,7 @@ Rules:
 
 ### Legacy branches are read-only history
 
-The preload step lists every branch matching `release-notes/*` in `/tmp/gh-aw/agent/release-notes-branches.txt`. Branches whose names do not match the `branch_features` of any current target are **legacy history**:
+The preload step lists every branch matching `release-notes/*` in `/tmp/gh-aw/agent/release-notes-branches.txt`. Branches whose names do not match the `branch_features` of any current target — and are not a component branch (`<branch_features>-<component-id>`) of a current target — are **legacy history**:
 
 - treat them as read-only context for understanding earlier editorial decisions
 - do **not** push to them, do **not** reuse them, and do **not** create PRs against them
@@ -814,7 +814,12 @@ The preload step lists every branch matching `release-notes/*` in `/tmp/gh-aw/ag
 
 ### 2. For each active target
 
-Process targets in array order. Each target has its own long-lived `branch_features` and PR for the lifetime of that release draft.
+Process targets in array order. Each target has its own family of long-lived branches and PRs for the lifetime of that release draft:
+
+- **Features branch** — `target.branch_features` (e.g. `release-notes/dotnet-11-preview-5-features`). Holds the **shared data** for the milestone: `changes.json`, `features.json`, `README.md`, and any other non-component metadata (e.g. `build-metadata.json`, `release.json`) that lives in `content_dir`. **Never write per-component `.md` files to this branch.**
+- **Component branches** — one branch per component that has noteworthy features in this milestone, named `<target.branch_features>-<component-id>` (e.g. `release-notes/dotnet-11-preview-5-features-runtime`, `…-aspnetcore`). Each component branch contains **only that component's `.md` file** inside `content_dir`. Components with no noteworthy features do **not** get a branch and do **not** get a stub `.md` — skip them entirely.
+
+Component IDs come from `release-notes/components.json` (the `id` field of each component, which matches the markdown file stem, e.g. `runtime` → `runtime.md`). Use `jq -r '.components[].id' /tmp/gh-aw/agent/components.json` to enumerate them.
 
 #### a. Regenerate changes.json
 
@@ -886,18 +891,18 @@ Before finalizing the candidate list, ask:
 
 Default to features that make sense to roughly **80% of the audience**. Specialized features are still welcome, but only when the other 80% can still understand why they matter.
 
-#### d. Check for human edits on the branch
+#### d. Check for human edits on the branches
 
-If the `branch_features` already exists on origin:
+For each branch in this target's family (`$branch_features` and every existing `$branch_features-<component-id>`) that already exists on origin:
 
 ```bash
 # What has changed on the branch since we last pushed?
-git log --oneline --decorate "origin/$branch_features"
+git log --oneline --decorate "origin/$branch"
 ```
 
 Treat branch history as **provenance**, not just diff noise.
 
-Before editing any existing file on the branch:
+Before editing any existing file on a branch:
 
 - inspect the commit history on that branch and identify whether the relevant changes came from `github-actions[bot]` / prior agent runs or from human authors
 - for files you plan to modify, inspect the commits that last touched the relevant sections and, when needed, use line-level provenance (`git blame`) to see who last edited the text
@@ -905,7 +910,7 @@ Before editing any existing file on the branch:
 
 Identify which markdown files and sections humans have edited. For those files, diff them to understand what changed. Do **not** overwrite human-edited sections. Only add new sections or update sections the agent previously wrote that no human has touched. If human-written and agent-written material are interleaved, make the smallest safe edit around the human content instead of rewriting the whole section.
 
-If the branch already has drafted markdown, that content is the **baseline** for the next run. Follow the shared `update-existing-branch` playbook: refresh `changes.json` only if the preview moved forward, merge the delta into `features.json`, preserve the current structure, address unresolved feedback, and update only the sections affected by new evidence or newly shipped changes.
+If a component branch already has drafted markdown, that content is the **baseline** for the next run. Follow the shared `update-existing-branch` playbook: refresh `changes.json` (on the features branch) only if the preview moved forward, merge the delta into `features.json`, preserve the current structure on each component branch, address unresolved feedback, and update only the sections affected by new evidence or newly shipped changes.
 
 If provenance is ambiguous, preserve the existing text and ask on the PR before changing it.
 
@@ -914,13 +919,33 @@ If provenance is ambiguous, preserve the existing text and ask on the PR before 
 Using `features.json`, `changes.json`, and the reference documents:
 
 - Route changes to output files via `product` field and component-mapping.md
-- For each component: identify which PRs are worth writing about
-- On a populated branch, start by editing the existing markdown files rather than drafting replacements from zero
-- integrate new material into existing clusters and sections when it fits the current story (for example, extend an existing performance or GC heading instead of creating a duplicate one)
-- Write feature descriptions following `format-template.md` and `editorial-rules.md`
-- If `release-notes/features.json` exists, consult it before writing. For matching long-running features, use the established feature name and start the section with the standard preview blockquote from the sidecar file.
-- Include a **Community contributors** section that mentions every external contributor with at least one merged PR in the milestone, even if their change only appears in bug fixes or was not promoted into a top-level feature section.
-- Components with no noteworthy changes get a minimal stub
+- For each component, identify which PRs are worth writing about. **If a component has no noteworthy features in this milestone, skip it entirely — do not create a branch, do not write an empty or stub `.md` file.**
+- For each component that *does* have noteworthy features, prepare a worktree on its component branch (`<branch_features>-<component-id>`) containing only that component's `.md` file:
+
+  ```bash
+  component_branch="${branch_features}-${component_id}"
+  if git show-ref --verify --quiet "refs/remotes/origin/$component_branch"; then
+    git fetch origin "$component_branch":"$component_branch"
+    git worktree add "/tmp/gh-aw/worktrees/$component_branch" "$component_branch"
+  else
+    git worktree add -b "$component_branch" "/tmp/gh-aw/worktrees/$component_branch" origin/main
+  fi
+  ```
+
+  Write or update *only* `$content_dir/<component-id>.md` inside that worktree. Do **not** copy `changes.json`, `features.json`, or any other component's `.md` into the worktree.
+- On a populated branch, start by editing the existing markdown rather than drafting a replacement from zero. Integrate new material into existing clusters and sections when it fits the current story (for example, extend an existing performance or GC heading instead of creating a duplicate one).
+- Write feature descriptions following `format-template.md` and `editorial-rules.md`.
+- If `features.json` already includes notes for matching long-running features, use the established feature name and start the section with the standard preview blockquote from the sidecar file.
+- Include a **Community contributors** section that mentions every external contributor with at least one merged PR in the milestone for *this component*, even if their change only appears in bug fixes or was not promoted into a top-level feature section. (External contributors who only worked on other components belong on those components' branches.)
+
+Separately, prepare the **features branch** worktree (`$branch_features`) containing only the shared milestone data:
+
+- `$content_dir/changes.json`
+- `$content_dir/features.json`
+- `$content_dir/README.md` — milestone landing page / index linking to each component file
+- Any other non-component metadata that belongs in the milestone directory (e.g. `build-metadata.json`, `release.json`) when applicable
+
+Do **not** include component `.md` files on the features branch.
 
 #### f. Ask for what you can't generate
 
@@ -983,27 +1008,51 @@ Ask for file + heading + issue + suggested rewrite, not generic preference. Then
 
 #### i. Prepare the publication manifest
 
-- **No PR exists for this target** → create local branch `$branch_features`, commit your changes locally, then write `/tmp/gh-aw/agent/publish/<branch_features_filename>.json` (replace `/` in the branch name with `-` for the filename) with `branch`, `title`, and `body`
-- **PR already exists for this target** → reuse that exact `branch_features`, commit the updates locally, then write or update the matching manifest with `branch` and a `comment` summarizing what changed; the workflow will reuse the existing PR and post the comment after you finish
+Each target produces **one manifest per branch you touched** — one for `$branch_features`, plus one for each component branch `<branch_features>-<component-id>` you wrote to. The downstream publish step opens or updates one PR per manifest.
 
-Branch identity is fixed by `target.branch_features`. Do **not** mint a fresh branch name for a rerun of the same target. Do **not** reuse any legacy branch even if it appears to contain related content — copy the relevant content into `branch_features` instead.
+For each branch:
 
-PR title format: `[release-notes] .NET <major_flat> <Capitalized milestone with space>` — for example, `[release-notes] .NET 11 Preview 3`.
+- **No PR exists for this branch** → commit your changes locally on that branch, then write `/tmp/gh-aw/agent/publish/<branch_filename>.json` (replace `/` in the branch name with `-` for the filename) with `branch`, `title`, and `body`.
+- **PR already exists for this branch** → reuse that exact branch, commit the updates locally, then write or update the matching manifest with `branch` and a `comment` summarizing what changed; the workflow will reuse the existing PR and post the comment after you finish.
 
-PR body should summarize: target milestone, number of changes, which component files were written/updated, and any open questions or items needing human review.
+Branch identity is fixed:
 
-Manifest example (target is `release-notes/dotnet-11-preview-3-features`):
+- The features branch is exactly `target.branch_features`.
+- Each component branch is exactly `<target.branch_features>-<component-id>` where `<component-id>` comes from `components.json`.
+
+Do **not** mint fresh branch names for a rerun of the same target. Do **not** reuse any legacy branch even if it appears to contain related content — copy the relevant content into the appropriate new branch instead.
+
+PR title formats:
+
+- Features branch: `[release-notes] .NET <major_flat> <Capitalized milestone with space>` — for example, `[release-notes] .NET 11 Preview 5`.
+- Component branch: `[release-notes] .NET <major_flat> <Capitalized milestone with space> — <Component title>` — for example, `[release-notes] .NET 11 Preview 5 — ASP.NET Core` (use the component's `title` field from `components.json`).
+
+PR bodies:
+
+- Features branch body: summarize the target milestone, number of changes, which component branches were created/updated, and any open questions or items needing human review.
+- Component branch body: summarize what changed in that component this milestone — number of features written, notable additions, and any open questions for that team. Link back to the features-branch PR.
+
+Manifest examples (target features branch `release-notes/dotnet-11-preview-5-features`):
 
 ```json
 {
-  "branch": "release-notes/dotnet-11-preview-3-features",
-  "title": "[release-notes] .NET 11 Preview 3",
-  "body": "Draft release notes for .NET 11 Preview 3.\n\n- changes.json generated from v11.0.0-preview.2 to main\n- Updated runtime.md and aspnetcore.md\n- Open question: benchmark data still needed for the JIT section",
-  "comment": "Refreshed changes.json, updated features.json scores, preserved the human-written intro, and addressed the latest review feedback."
+  "branch": "release-notes/dotnet-11-preview-5-features",
+  "title": "[release-notes] .NET 11 Preview 5",
+  "body": "Draft release notes data for .NET 11 Preview 5.\n\n- changes.json generated from release/11.0.1xx-preview4 to main\n- features.json scored for 87 changes\n- Component branches opened: runtime, aspnetcore, sdk\n- Open question: benchmark data still needed for the JIT section (see runtime PR)",
+  "comment": "Refreshed changes.json and features.json scores."
 }
 ```
 
-This publication manifest is **required**. A run that edits files for an active target is not complete until it has written a manifest for every changed `branch_features` so the workflow can publish it after agent execution.
+```json
+{
+  "branch": "release-notes/dotnet-11-preview-5-features-runtime",
+  "title": "[release-notes] .NET 11 Preview 5 — .NET Runtime",
+  "body": "Draft Runtime release notes for .NET 11 Preview 5.\n\n- 12 features written across GC, JIT, and diagnostics\n- See companion features PR for changes.json/features.json\n- Open question: benchmark data still needed for the new loop-unrolling optimization",
+  "comment": "Added two new JIT features and refreshed the GC section."
+}
+```
+
+Publication manifests are **required**. A run that edits files for an active target is not complete until it has written a manifest for every branch it touched — the features branch and every component branch — so the workflow can publish them after agent execution. Conversely, do **not** write a manifest for a component branch you did not modify (the workflow will not open empty PRs).
 
 ### 3. Handle transitions
 
