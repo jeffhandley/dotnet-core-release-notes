@@ -216,8 +216,30 @@ steps:
         fi
       }
 
+      # Extract milestone token (no hyphen) from a release version string.
+      # e.g. "11.0.0-preview.4" -> "preview4", "11.0.0-rc.1" -> "rc1".
+      last_shipped_milestone() {
+        local v="$1"
+        if [[ "$v" =~ -(preview|rc)\.([0-9]+)$ ]]; then
+          echo "${BASH_REMATCH[1]}${BASH_REMATCH[2]}"
+        else
+          echo ""
+        fi
+      }
+
+      # Extract the SDK feature band from a latest-sdk string.
+      # e.g. "11.0.100-preview.4.26230.115" -> "1", "10.0.200-rtm" -> "2".
+      sdk_band_from() {
+        local s="$1"
+        if [[ "$s" =~ ^[0-9]+\.[0-9]+\.([0-9])[0-9][0-9] ]]; then
+          echo "${BASH_REMATCH[1]}"
+        else
+          echo ""
+        fi
+      }
+
       targets="[]"
-      while IFS=$'\t' read -r channel latest_release support_phase; do
+      while IFS=$'\t' read -r channel latest_release latest_sdk support_phase; do
         [ -n "$channel" ] || continue
 
         if [ -n "$INPUTS_MILESTONE" ]; then
@@ -255,6 +277,13 @@ steps:
         major_flat="${channel%.*}"
         milestone_label=$(to_branch_label "$milestone")
         phase_dir=$(to_phase_dir "$milestone")
+        last_milestone_token=$(last_shipped_milestone "$latest_release")
+        sdk_band=$(sdk_band_from "$latest_sdk")
+
+        if [ -z "$last_milestone_token" ] || [ -z "$sdk_band" ]; then
+          echo "::error::Cannot derive VMR base ref for $channel (latest_release=$latest_release, latest_sdk=$latest_sdk)"
+          exit 1
+        fi
 
         target=$(jq -n \
           --arg major "$channel" \
@@ -262,6 +291,8 @@ steps:
           --arg milestone "$milestone" \
           --arg milestone_label "$milestone_label" \
           --arg last_shipped "$latest_release" \
+          --arg last_milestone_token "$last_milestone_token" \
+          --arg sdk_band "$sdk_band" \
           --arg phase "$support_phase" \
           --arg phase_dir "$phase_dir" \
           '{
@@ -273,11 +304,11 @@ steps:
             support_phase: $phase,
             branch_features: "release-notes/dotnet-\($major_flat)-\($milestone_label)-features",
             content_dir: "release-notes/\($major)/\($phase_dir)/\($milestone)",
-            vmr_base_tag: "v\($last_shipped)",
+            vmr_base_tag: "release/\($major).\($sdk_band)xx-\($last_milestone_token)",
             vmr_head_ref: "main"
           }')
         targets=$(jq --argjson t "$target" '. += [$t]' <<<"$targets")
-      done < <(jq -r '."releases-index"[] | select(."support-phase" == "preview" or ."support-phase" == "go-live") | [."channel-version", ."latest-release", ."support-phase"] | @tsv' "$INDEX_PATH")
+      done < <(jq -r '."releases-index"[] | select(."support-phase" == "preview" or ."support-phase" == "go-live") | [."channel-version", ."latest-release", ."latest-sdk", ."support-phase"] | @tsv' "$INDEX_PATH")
 
       # Invariant: at most one active milestone per major.
       dup=$(jq -r '[.[].major] | group_by(.) | map(select(length > 1)) | length' <<<"$targets")
@@ -617,6 +648,8 @@ engine:
     # We cannot use line breaks in this expression as it leads to a syntax error in the compiled workflow
     # If none of the `COPILOT_PAT_#` secrets were selected, then the default COPILOT_GITHUB_TOKEN is used
     COPILOT_GITHUB_TOKEN: ${{ case(needs.pre_activation.outputs.copilot_pat_number == '0', secrets.COPILOT_PAT_0, needs.pre_activation.outputs.copilot_pat_number == '1', secrets.COPILOT_PAT_1, needs.pre_activation.outputs.copilot_pat_number == '2', secrets.COPILOT_PAT_2, needs.pre_activation.outputs.copilot_pat_number == '3', secrets.COPILOT_PAT_3, needs.pre_activation.outputs.copilot_pat_number == '4', secrets.COPILOT_PAT_4, needs.pre_activation.outputs.copilot_pat_number == '5', secrets.COPILOT_PAT_5, needs.pre_activation.outputs.copilot_pat_number == '6', secrets.COPILOT_PAT_6, needs.pre_activation.outputs.copilot_pat_number == '7', secrets.COPILOT_PAT_7, needs.pre_activation.outputs.copilot_pat_number == '8', secrets.COPILOT_PAT_8, needs.pre_activation.outputs.copilot_pat_number == '9', secrets.COPILOT_PAT_9, secrets.COPILOT_GITHUB_TOKEN) }}
+    # GITHUB_TOKEN is the workflow's run-scoped token (read-only per the `permissions:` block above). `release-notes-gen generate changes` requires it to query PR metadata against dotnet/dotnet.
+    GITHUB_TOKEN: ${{ github.token }}
 ---
 
 <!-- markdownlint-disable-next-line MD025 -->
@@ -757,7 +790,7 @@ The structure is a JSON array of targets, typically a single entry:
     "support_phase": "preview",
     "branch_features": "release-notes/dotnet-11-preview-3-features",
     "content_dir": "release-notes/11.0/preview/preview3",
-    "vmr_base_tag": "v11.0.0-preview.2",
+    "vmr_base_tag": "release/11.0.1xx-preview2",
     "vmr_head_ref": "main"
   }
 ]
@@ -767,7 +800,7 @@ Rules:
 
 - If `target.json` is `[]`, exit cleanly with a final message that there is nothing to do this run — do not invent a target.
 - For each entry, the **only** valid publish branch for that target is `branch_features`. Do not create or push to any other branch for that target.
-- `vmr_base_tag` and `vmr_head_ref` are the refs to feed `release-notes generate changes`. Verify the tag exists with `git -C /tmp/dotnet rev-parse --verify "refs/tags/$vmr_base_tag" >/dev/null`; if it does not exist, fail loudly and report which alternative tags do exist near that name. Do not silently substitute another ref.
+- `vmr_base_tag` and `vmr_head_ref` are the refs to feed `release-notes generate changes`. Despite the field name, `vmr_base_tag` is normally a **branch ref** (e.g. `release/11.0.1xx-preview4`) — the release branch of the previously shipped milestone, used as the inclusive lower bound. Verify it exists with `git -C /tmp/dotnet rev-parse --verify "$vmr_base_tag" >/dev/null` (this resolves either a tag or a branch). If it does not resolve, fail loudly and report which nearby refs do exist (`git -C /tmp/dotnet for-each-ref --format='%(refname:short)' 'refs/heads/release/*' 'refs/tags/v*' | grep -F "<major>"`). Do not silently substitute another ref.
 - Use `content_dir` for file paths inside this repository (this matches the existing per-milestone directory convention).
 - Strict serial invariant: exactly one milestone is active per major version at any time. The workflow already enforced this; if it produced multiple entries for the same major, that is a workflow bug — abort.
 
@@ -797,7 +830,7 @@ release-notes generate changes /tmp/dotnet \
   --output "$content_dir/changes.json"
 ```
 
-For example, with the target shown above: `--base v11.0.0-preview.2 --head main --version "11.0.0-preview.3" --output release-notes/11.0/preview/preview3/changes.json`.
+For example, with the target shown above: `--base release/11.0.1xx-preview2 --head main --version "11.0.0-preview.3" --output release-notes/11.0/preview/preview3/changes.json`.
 
 #### b. Generate or refresh features.json
 
