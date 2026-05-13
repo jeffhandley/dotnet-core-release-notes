@@ -837,6 +837,19 @@ release-notes generate changes /tmp/dotnet \
 
 For example, with the target shown above: `--base release/11.0.1xx-preview2 --head main --version "11.0.0-preview.3" --output release-notes/11.0/preview/preview3/changes.json`.
 
+#### a2. Regenerate build-metadata.json
+
+Always regenerate alongside `changes.json` so package versions stay in sync with the milestone:
+
+```bash
+release-notes generate build-metadata /tmp/dotnet \
+  --base "$vmr_base_tag" \
+  --head "$vmr_head_ref" \
+  --output "$content_dir/build-metadata.json"
+```
+
+`build-metadata.json` belongs on the **features branch** alongside `changes.json` and `features.json`. The `nuget.source` and `nuget.packages` values are also what downstream API verification steps consume when checking shipped types — keep this file current.
+
 #### b. Generate or refresh features.json
 
 Before you assign scores, do a mechanical revert audit. The goal is to catch
@@ -942,8 +955,9 @@ Separately, prepare the **features branch** worktree (`$branch_features`) contai
 
 - `$content_dir/changes.json`
 - `$content_dir/features.json`
+- `$content_dir/build-metadata.json` (always present — regenerated in step (a2))
 - `$content_dir/README.md` — milestone landing page / index linking to each component file
-- Any other non-component metadata that belongs in the milestone directory (e.g. `build-metadata.json`, `release.json`) when applicable
+- Any other non-component metadata that belongs in the milestone directory (e.g. `release.json`) when applicable
 
 Do **not** include component `.md` files on the features branch.
 
