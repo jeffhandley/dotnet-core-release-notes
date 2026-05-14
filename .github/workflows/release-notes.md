@@ -366,8 +366,10 @@ jobs:
                   git fetch "$bundle_local" "+refs/heads/$branch:refs/heads/$branch"
 
                   # Hard gate: refuse to push markdown that fails markdownlint.
-                  # Extract every .md from the branch into a temp dir and lint it.
-                  md_files=$(git ls-tree -r --name-only "$branch" | grep '\.md$' || true)
+                  # Lint ONLY files this branch added or modified vs origin/main —
+                  # otherwise the gate would flag pre-existing violations in
+                  # unrelated historical release notes.
+                  md_files=$(git diff --name-only "origin/main...$branch" -- '*.md' 2>/dev/null || true)
                   if [ -n "$md_files" ]; then
                     lint_dir=$(mktemp -d)
                     while IFS= read -r md_path; do
@@ -413,7 +415,8 @@ jobs:
                 git fetch "$bundle_local" "+refs/heads/$branch:refs/heads/$branch"
 
                 # Hard gate: refuse to push markdown that fails markdownlint.
-                md_files=$(git ls-tree -r --name-only "$branch" | grep '\.md$' || true)
+                # Lint ONLY files this branch added or modified vs origin/main.
+                md_files=$(git diff --name-only "origin/main...$branch" -- '*.md' 2>/dev/null || true)
                 if [ -n "$md_files" ]; then
                   lint_dir=$(mktemp -d)
                   while IFS= read -r md_path; do
