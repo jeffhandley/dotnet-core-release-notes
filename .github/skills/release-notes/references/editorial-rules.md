@@ -77,6 +77,21 @@ Tone, attribution, and content guidelines for .NET release notes.
 - **TODO for borderline entries** — when a feature might deserve inclusion but you lack data to justify it (benchmark numbers, real-world impact, user demand), keep the entry but add an HTML `<!-- TODO -->` comment asking for the missing information. This is better than silently including a vague claim or silently cutting something that might matter. The TODO should state what's needed and link to the PR where the data might live.
 - **Breaking changes are separate from hype** — a breaking change can be important even when it is not exciting. Keep the score honest; use `breaking_changes: true` to preserve a short callout instead of inflating the item into a headline feature.
 - **Clusters can be stronger than the parts** — several related low-score items can justify one section when together they tell a clear story. Keep the individual scores honest, then merge them into one writeup instead of emitting several weak mini-features. Good examples include a group of "Unsafe evolution" changes or multiple runtime entries prefixed with `[browser]`.
+- **Merge incremental work into a single "[Area] improvements" section** — when a milestone contains **three or more** small, related changes within the same long-running feature or subsystem (e.g. multiple JIT optimizations, multiple Runtime-async refinements, multiple Native AOT size wins, multiple GC tuning changes), emit **one** section titled `## <Area> improvements` (or `## <Feature> improvements`) instead of one heading per PR. Use a brief intro paragraph followed by a short bulleted list — one bullet per PR with a one-line summary and the linked PR reference. Reserve standalone headings for items that genuinely warrant their own story (a new public API, a default behavior change, a major perf claim with benchmarks). Prefer the simpler `improvements` name over invented umbrella terms — readers scan for the area, not for clever phrasing.
+
+  Example structure for a clustered section:
+
+  ```markdown
+  ## Runtime-async improvements
+
+  Several refinements landed this preview that reduce overhead and improve diagnostics for runtime-async:
+
+  - Lower suspend/resume overhead on the common path ([dotnet/runtime #12345](...))
+  - `AsyncLocal<T>` values are now preserved across runtime-async awaits ([dotnet/runtime #12346](...))
+  - `EventSource` tracing now reports runtime-async transitions ([dotnet/runtime #12347](...))
+  ```
+
+  The threshold is **three or more** related items. Two related items can stay as two short adjacent sections if each tells a meaningful story on its own; collapse them only when both would otherwise be two-sentence stubs.
 
 ## Feature ordering
 
