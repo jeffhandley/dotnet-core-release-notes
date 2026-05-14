@@ -365,6 +365,23 @@ jobs:
                   bundle_local=$(resolve_bundle "$bundle")
                   git fetch "$bundle_local" "+refs/heads/$branch:refs/heads/$branch"
 
+                  # Rebase the agent's commits onto the CURRENT origin/main so
+                  # the branch tree's `.github/workflows/` matches main. The
+                  # workflow token lacks the `workflows: write` scope; GitHub
+                  # rejects any push from a GitHub App where the branch's
+                  # workflow tree differs from the default branch, even when
+                  # the new commits don't touch workflow files. This happens
+                  # whenever main moves forward (e.g., workflow edits land)
+                  # while the agent is running — the agent's worktree was
+                  # forked from an older main snapshot.
+                  if ! git rebase origin/main "$branch"; then
+                    git rebase --abort 2>/dev/null || true
+                    echo "::error::Could not rebase $branch onto current origin/main"
+                    echo "- ❌ \`$branch\` — push blocked: rebase conflict" >> "$summary"
+                    lint_failed=1
+                    continue
+                  fi
+
                   # Hard gate: refuse to push markdown that fails markdownlint.
                   # Lint the files this branch added or modified vs origin/main.
                   # markdownlint validates the whole file, not just the diff,
@@ -416,6 +433,16 @@ jobs:
                 pr_number=$(jq -r '.pull_request_number' <<<"$item")
                 echo "→ push_to_pull_request_branch branch=$branch pr=$pr_number"
                 git fetch "$bundle_local" "+refs/heads/$branch:refs/heads/$branch"
+
+                # Rebase onto current origin/main so the branch tree's
+                # .github/workflows/ matches main (see longer comment above).
+                if ! git rebase origin/main "$branch"; then
+                  git rebase --abort 2>/dev/null || true
+                  echo "::error::Could not rebase $branch onto current origin/main"
+                  echo "- ❌ \`$branch\` — push blocked: rebase conflict" >> "$summary"
+                  lint_failed=1
+                  continue
+                fi
 
                 # Hard gate: refuse to push markdown that fails markdownlint.
                 # Lint the files this branch added or modified vs origin/main.
