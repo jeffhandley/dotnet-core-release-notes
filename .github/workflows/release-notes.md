@@ -366,22 +366,13 @@ jobs:
                   git fetch "$bundle_local" "+refs/heads/$branch:refs/heads/$branch"
 
                   # Hard gate: refuse to push markdown that fails markdownlint.
-                  # Lint every .md in the parent directories of files this branch
-                  # changed vs origin/main — this means the whole milestone
-                  # directory must be lint-clean whenever any file in it is
-                  # published, even files this run didn't touch (preventing
-                  # "broken forever" content from sitting on the branch
-                  # untouched on future runs). Pre-existing .md files in
-                  # unrelated directories stay out of scope.
-                  changed_md=$(git diff --name-only "origin/main...$branch" -- '*.md' 2>/dev/null || true)
-                  if [ -n "$changed_md" ]; then
-                    dirs=$(echo "$changed_md" | xargs -n1 dirname | sort -u)
-                    md_files=$(for d in $dirs; do
-                      git ls-tree -r --name-only "$branch" -- "$d" 2>/dev/null | grep '\.md$' || true
-                    done | sort -u)
-                  else
-                    md_files=""
-                  fi
+                  # Lint the files this branch added or modified vs origin/main.
+                  # markdownlint validates the whole file, not just the diff,
+                  # so this catches structural problems anywhere in any file
+                  # the agent wrote on this branch. If the gate fails, only
+                  # this branch is blocked — other branches in the run still
+                  # publish if their own files lint clean.
+                  md_files=$(git diff --name-only "origin/main...$branch" -- '*.md' 2>/dev/null || true)
                   if [ -n "$md_files" ]; then
                     lint_dir=$(mktemp -d)
                     while IFS= read -r md_path; do
@@ -427,17 +418,8 @@ jobs:
                 git fetch "$bundle_local" "+refs/heads/$branch:refs/heads/$branch"
 
                 # Hard gate: refuse to push markdown that fails markdownlint.
-                # Lint every .md in the parent directories of files this branch
-                # changed vs origin/main (whole-milestone-directory policy).
-                changed_md=$(git diff --name-only "origin/main...$branch" -- '*.md' 2>/dev/null || true)
-                if [ -n "$changed_md" ]; then
-                  dirs=$(echo "$changed_md" | xargs -n1 dirname | sort -u)
-                  md_files=$(for d in $dirs; do
-                    git ls-tree -r --name-only "$branch" -- "$d" 2>/dev/null | grep '\.md$' || true
-                  done | sort -u)
-                else
-                  md_files=""
-                fi
+                # Lint the files this branch added or modified vs origin/main.
+                md_files=$(git diff --name-only "origin/main...$branch" -- '*.md' 2>/dev/null || true)
                 if [ -n "$md_files" ]; then
                   lint_dir=$(mktemp -d)
                   while IFS= read -r md_path; do
