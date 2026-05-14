@@ -366,10 +366,22 @@ jobs:
                   git fetch "$bundle_local" "+refs/heads/$branch:refs/heads/$branch"
 
                   # Hard gate: refuse to push markdown that fails markdownlint.
-                  # Lint ONLY files this branch added or modified vs origin/main —
-                  # otherwise the gate would flag pre-existing violations in
-                  # unrelated historical release notes.
-                  md_files=$(git diff --name-only "origin/main...$branch" -- '*.md' 2>/dev/null || true)
+                  # Lint every .md in the parent directories of files this branch
+                  # changed vs origin/main — this means the whole milestone
+                  # directory must be lint-clean whenever any file in it is
+                  # published, even files this run didn't touch (preventing
+                  # "broken forever" content from sitting on the branch
+                  # untouched on future runs). Pre-existing .md files in
+                  # unrelated directories stay out of scope.
+                  changed_md=$(git diff --name-only "origin/main...$branch" -- '*.md' 2>/dev/null || true)
+                  if [ -n "$changed_md" ]; then
+                    dirs=$(echo "$changed_md" | xargs -n1 dirname | sort -u)
+                    md_files=$(for d in $dirs; do
+                      git ls-tree -r --name-only "$branch" -- "$d" 2>/dev/null | grep '\.md$' || true
+                    done | sort -u)
+                  else
+                    md_files=""
+                  fi
                   if [ -n "$md_files" ]; then
                     lint_dir=$(mktemp -d)
                     while IFS= read -r md_path; do
@@ -415,8 +427,17 @@ jobs:
                 git fetch "$bundle_local" "+refs/heads/$branch:refs/heads/$branch"
 
                 # Hard gate: refuse to push markdown that fails markdownlint.
-                # Lint ONLY files this branch added or modified vs origin/main.
-                md_files=$(git diff --name-only "origin/main...$branch" -- '*.md' 2>/dev/null || true)
+                # Lint every .md in the parent directories of files this branch
+                # changed vs origin/main (whole-milestone-directory policy).
+                changed_md=$(git diff --name-only "origin/main...$branch" -- '*.md' 2>/dev/null || true)
+                if [ -n "$changed_md" ]; then
+                  dirs=$(echo "$changed_md" | xargs -n1 dirname | sort -u)
+                  md_files=$(for d in $dirs; do
+                    git ls-tree -r --name-only "$branch" -- "$d" 2>/dev/null | grep '\.md$' || true
+                  done | sort -u)
+                else
+                  md_files=""
+                fi
                 if [ -n "$md_files" ]; then
                   lint_dir=$(mktemp -d)
                   while IFS= read -r md_path; do
