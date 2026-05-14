@@ -77,21 +77,43 @@ Tone, attribution, and content guidelines for .NET release notes.
 - **TODO for borderline entries** — when a feature might deserve inclusion but you lack data to justify it (benchmark numbers, real-world impact, user demand), keep the entry but add an HTML `<!-- TODO -->` comment asking for the missing information. This is better than silently including a vague claim or silently cutting something that might matter. The TODO should state what's needed and link to the PR where the data might live.
 - **Breaking changes are separate from hype** — a breaking change can be important even when it is not exciting. Keep the score honest; use `breaking_changes: true` to preserve a short callout instead of inflating the item into a headline feature.
 - **Clusters can be stronger than the parts** — several related low-score items can justify one section when together they tell a clear story. Keep the individual scores honest, then merge them into one writeup instead of emitting several weak mini-features. Good examples include a group of "Unsafe evolution" changes or multiple runtime entries prefixed with `[browser]`.
-- **Merge incremental work into a single "[Area] improvements" section** — when a milestone contains **three or more** small, related changes within the same long-running feature or subsystem (e.g. multiple JIT optimizations, multiple Runtime-async refinements, multiple Native AOT size wins, multiple GC tuning changes), emit **one** section titled `## <Area> improvements` (or `## <Feature> improvements`) instead of one heading per PR. Use a brief intro paragraph followed by a short bulleted list — one bullet per PR with a one-line summary and the linked PR reference. Reserve standalone headings for items that genuinely warrant their own story (a new public API, a default behavior change, a major perf claim with benchmarks). Prefer the simpler `improvements` name over invented umbrella terms — readers scan for the area, not for clever phrasing.
+- **Merge incremental work into a single "[Area] improvements" section** — when a milestone contains **three or more** small, related changes within the same long-running feature or subsystem (e.g. multiple JIT optimizations, multiple Runtime-async refinements, multiple Native AOT size wins, multiple GC tuning changes), emit **one** section titled `## <Area> improvements` (or `## <Feature> improvements`) instead of one heading per PR. Reserve standalone headings for items that genuinely warrant their own story (a new public API, a default behavior change, a major perf claim with benchmarks). Prefer the simpler `improvements` name over invented umbrella terms — readers scan for the area, not for clever phrasing.
 
-  Example structure for a clustered section:
+  **Choose the right shape for the cluster:**
 
-  ```markdown
-  ## Runtime-async improvements
+  - **Code-pattern clusters (JIT, codegen, runtime perf, GC tuning, AOT size, vectorization, intrinsics)** — these almost always benefit from **showing the pattern**. Use a brief intro paragraph, then either short prose-with-snippets paragraphs (one per change, with the PR link inline) or `###` sub-headings when each item warrants more than one paragraph. Include a small `csharp` (and occasionally `asm`) snippet that illustrates **what the developer would write or observe**, not the implementation detail. Prefer minimal, runnable-looking examples over excerpted PR descriptions.
 
-  Several refinements landed this preview that reduce overhead and improve diagnostics for runtime-async:
+    Example (prose-with-snippets):
 
-  - Lower suspend/resume overhead on the common path ([dotnet/runtime #12345](...))
-  - `AsyncLocal<T>` values are now preserved across runtime-async awaits ([dotnet/runtime #12346](...))
-  - `EventSource` tracing now reports runtime-async transitions ([dotnet/runtime #12347](...))
-  ```
+    ```markdown
+    ## JIT improvements
 
-  The threshold is **three or more** related items. Two related items can stay as two short adjacent sections if each tells a meaningful story on its own; collapse them only when both would otherwise be two-sentence stubs.
+    Several JIT optimizations landed this preview that benefit normal C# without any source changes.
+
+    Common patterns like multi-target `switch` expressions now fold into simpler branchless checks ([dotnet/runtime #124567](...)), index-from-end access can drop more redundant bounds checks ([dotnet/runtime #124571](...)), and `uint` → `float`/`double` casts are faster on pre-AVX-512 x86 hardware ([dotnet/runtime #124114](...)).
+
+    ```csharp
+    bool isSmall = x is 0 or 1 or 2 or 3 or 4;
+    int tail = values[^1] + values[^2];
+    double d = someUint;
+    ```
+    ```
+
+    Use `###` sub-headings (as in past `## JIT optimizations` sections) when individual items merit a paragraph of explanation plus a code sample — for example, an inlining improvement with a before/after pattern, or a bounds-check elimination that needs a few lines of C# to make the pattern recognizable.
+
+  - **Behavioral / library clusters (Runtime-async refinements, AsyncLocal flow, EventSource additions, etc.)** — a bullet list is fine when each item is a small behavior tweak without a meaningful code pattern to show. One bullet per PR with a one-line summary and the linked PR reference.
+
+    ```markdown
+    ## Runtime-async improvements
+
+    Several refinements landed this preview that reduce overhead and improve diagnostics for runtime-async:
+
+    - Lower suspend/resume overhead on the common path ([dotnet/runtime #12345](...))
+    - `AsyncLocal<T>` values are now preserved across runtime-async awaits ([dotnet/runtime #12346](...))
+    - `EventSource` tracing now reports runtime-async transitions ([dotnet/runtime #12347](...))
+    ```
+
+  The threshold is **three or more** related items. Two related items can stay as two short adjacent sections if each tells a meaningful story on its own; collapse them only when both would otherwise be two-sentence stubs. When in doubt for code-pattern clusters, look at the past two milestones' `runtime.md` for the established shape and match it.
 
 ## Feature ordering
 
