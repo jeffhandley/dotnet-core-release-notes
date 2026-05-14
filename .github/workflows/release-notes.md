@@ -794,6 +794,29 @@ Using `features.json`, `changes.json`, and the reference documents:
 
   Write or update *only* `$content_dir/<component-id>.md` inside that worktree. Do **not** copy `changes.json`, `features.json`, or any other component's `.md` into the worktree.
 
+  **Do not hand-write the table of contents.** Leave a placeholder bracketed by HTML markers near the top of the file (after the title and intro sentence), then run `markdown-toc` to populate it from the `##` headings. This eliminates anchor typos and orphaned TOC entries when headings are renamed, clustered, or removed.
+
+  ```markdown
+  # .NET <Component> in .NET <Version> - Release Notes
+
+  .NET <Version> includes new <Component> features & enhancements:
+
+  <!-- toc -->
+  <!-- tocstop -->
+
+  ## First heading
+
+  …
+  ```
+
+  After writing all `##` and `###` headings, populate the TOC:
+
+  ```bash
+  npx --yes markdown-toc -i "/tmp/gh-aw/worktrees/$component_branch/$content_dir/$component_id.md" --maxdepth 2
+  ```
+
+  `--maxdepth 2` includes `##` headings only (matches the established style — `###` subsections inside `## [Area] improvements` are intentionally not listed). The tool reads the headings, generates GitHub-style anchor slugs, and replaces the content between the markers. Re-run it any time you add, remove, or rename a `##` heading.
+
   Before committing, **lint and auto-fix the markdown** to catch structural mistakes (missing blank lines between headings and body, headings fused with paragraphs, duplicate or orphaned anchors, broken list indentation):
 
   ```bash
@@ -801,9 +824,9 @@ Using `features.json`, `changes.json`, and the reference documents:
   npx --yes markdownlint-cli --config .github/linters/.markdown-lint.yml "/tmp/gh-aw/worktrees/$component_branch/$content_dir/$component_id.md"
   ```
 
-  The second invocation (no `--fix`) is the gate — it must exit `0` before you commit. If it fails, read the violations, repair the markdown by hand, and re-run both commands until clean. Common breakages: a `##` heading that runs into the next paragraph with no newline (e.g. `## Heap Dumps Use HEAP2 by DefaultHeap dumps generated…`); a section listed in the table of contents but missing its `##` heading in the body; sub-bullets that lost their indentation.
+  The second invocation (no `--fix`) is the gate — it must exit `0` before you commit. If it fails, read the violations, repair the markdown by hand (and re-run `markdown-toc` if you changed a heading), and re-run both commands until clean. Common breakages: a `##` heading that runs into the next paragraph with no newline (e.g. `## Heap Dumps Use HEAP2 by DefaultHeap dumps generated…`); sub-bullets that lost their indentation. Anchor-fragment mismatches (MD051) should not occur once the TOC is auto-generated — if they do, you forgot to re-run `markdown-toc` after changing a heading.
 
-  Run the same lint pair against `README.md` on the features branch worktree before committing it. **Never commit markdown that does not pass `markdownlint-cli` without `--fix`.**
+  Run the same lint pair against `README.md` on the features branch worktree before committing it (the README uses inter-file links rather than anchors, so it does not need the TOC tool). **Never commit markdown that does not pass `markdownlint-cli` without `--fix`.**
 - On a populated branch, start by editing the existing markdown rather than drafting a replacement from zero. Integrate new material into existing clusters and sections when it fits the current story (for example, extend an existing performance or GC heading instead of creating a duplicate one).
 - Write feature descriptions following `format-template.md` and `editorial-rules.md`.
 - If `features.json` already includes notes for matching long-running features, use the established feature name and start the section with the standard preview blockquote from the sidecar file.
