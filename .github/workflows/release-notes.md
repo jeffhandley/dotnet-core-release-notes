@@ -344,6 +344,10 @@ jobs:
             echo ""
           } >> "$summary"
 
+          # Track whether any branch was rejected by the markdownlint gate
+          # so we can fail the run after processing all items.
+          lint_failed=0
+
           for i in $(seq 0 $((items_count - 1))); do
             item=$(jq -c ".items[$i]" "$agent_output")
             type=$(jq -r '.type' <<<"$item")
@@ -360,6 +364,27 @@ jobs:
                 else
                   bundle_local=$(resolve_bundle "$bundle")
                   git fetch "$bundle_local" "+refs/heads/$branch:refs/heads/$branch"
+
+                  # Hard gate: refuse to push markdown that fails markdownlint.
+                  # Extract every .md from the branch into a temp dir and lint it.
+                  md_files=$(git ls-tree -r --name-only "$branch" | grep '\.md$' || true)
+                  if [ -n "$md_files" ]; then
+                    lint_dir=$(mktemp -d)
+                    while IFS= read -r md_path; do
+                      [ -z "$md_path" ] && continue
+                      mkdir -p "$lint_dir/$(dirname "$md_path")"
+                      git show "$branch:$md_path" > "$lint_dir/$md_path"
+                    done <<< "$md_files"
+                    if ! npx --yes markdownlint-cli --config .github/linters/.markdown-lint.yml "$lint_dir" 2>&1 | tee -a "$summary"; then
+                      echo "::error::Markdownlint violations on $branch — refusing to push. See log above."
+                      echo "- ❌ \`$branch\` — push blocked: markdownlint violations" >> "$summary"
+                      rm -rf "$lint_dir"
+                      lint_failed=1
+                      continue
+                    fi
+                    rm -rf "$lint_dir"
+                  fi
+
                   git push origin "refs/heads/$branch:refs/heads/$branch" --force-with-lease
                 fi
 
@@ -386,6 +411,26 @@ jobs:
                 pr_number=$(jq -r '.pull_request_number' <<<"$item")
                 echo "→ push_to_pull_request_branch branch=$branch pr=$pr_number"
                 git fetch "$bundle_local" "+refs/heads/$branch:refs/heads/$branch"
+
+                # Hard gate: refuse to push markdown that fails markdownlint.
+                md_files=$(git ls-tree -r --name-only "$branch" | grep '\.md$' || true)
+                if [ -n "$md_files" ]; then
+                  lint_dir=$(mktemp -d)
+                  while IFS= read -r md_path; do
+                    [ -z "$md_path" ] && continue
+                    mkdir -p "$lint_dir/$(dirname "$md_path")"
+                    git show "$branch:$md_path" > "$lint_dir/$md_path"
+                  done <<< "$md_files"
+                  if ! npx --yes markdownlint-cli --config .github/linters/.markdown-lint.yml "$lint_dir" 2>&1 | tee -a "$summary"; then
+                    echo "::error::Markdownlint violations on $branch — refusing to push. See log above."
+                    echo "- ❌ \`$branch\` — push blocked: markdownlint violations" >> "$summary"
+                    rm -rf "$lint_dir"
+                    lint_failed=1
+                    continue
+                  fi
+                  rm -rf "$lint_dir"
+                fi
+
                 git push origin "refs/heads/$branch:refs/heads/$branch" --force-with-lease
                 pr_url="${repo_url}/pull/${pr_number}"
                 echo "- 🔁 \`$branch\` — pushed update to PR [#$pr_number]($pr_url)" >> "$summary"
@@ -401,6 +446,11 @@ jobs:
                 ;;
             esac
           done
+
+          if [ "$lint_failed" -ne 0 ]; then
+            echo "::error::One or more branches were blocked by the markdownlint gate. Re-run after fixing markdown."
+            exit 1
+          fi
 
   pre-activation:
     outputs:
@@ -710,6 +760,17 @@ Using `features.json`, `changes.json`, and the reference documents:
   ```
 
   Write or update *only* `$content_dir/<component-id>.md` inside that worktree. Do **not** copy `changes.json`, `features.json`, or any other component's `.md` into the worktree.
+
+  Before committing, **lint and auto-fix the markdown** to catch structural mistakes (missing blank lines between headings and body, headings fused with paragraphs, duplicate or orphaned anchors, broken list indentation):
+
+  ```bash
+  npx --yes markdownlint-cli --config .github/linters/.markdown-lint.yml --fix "/tmp/gh-aw/worktrees/$component_branch/$content_dir/$component_id.md"
+  npx --yes markdownlint-cli --config .github/linters/.markdown-lint.yml "/tmp/gh-aw/worktrees/$component_branch/$content_dir/$component_id.md"
+  ```
+
+  The second invocation (no `--fix`) is the gate — it must exit `0` before you commit. If it fails, read the violations, repair the markdown by hand, and re-run both commands until clean. Common breakages: a `##` heading that runs into the next paragraph with no newline (e.g. `## Heap Dumps Use HEAP2 by DefaultHeap dumps generated…`); a section listed in the table of contents but missing its `##` heading in the body; sub-bullets that lost their indentation.
+
+  Run the same lint pair against `README.md` on the features branch worktree before committing it. **Never commit markdown that does not pass `markdownlint-cli` without `--fix`.**
 - On a populated branch, start by editing the existing markdown rather than drafting a replacement from zero. Integrate new material into existing clusters and sections when it fits the current story (for example, extend an existing performance or GC heading instead of creating a duplicate one).
 - Write feature descriptions following `format-template.md` and `editorial-rules.md`.
 - If `features.json` already includes notes for matching long-running features, use the established feature name and start the section with the standard preview blockquote from the sidecar file.
