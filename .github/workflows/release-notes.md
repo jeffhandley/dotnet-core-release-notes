@@ -381,7 +381,7 @@ jobs:
             const m = /^##\s+([^#].*)$/.exec(line);
             if (!m) continue;
             const text = m[1].trimEnd();
-            const plain = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[`*_]/g, '');
+            const plain = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/`/g, '');
             const slug = slugger.slug(plain);
             entries.push(`- [${text}](#${slug})`);
           }

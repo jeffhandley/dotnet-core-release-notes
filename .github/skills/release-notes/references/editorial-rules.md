@@ -60,6 +60,9 @@ Tone, attribution, and content guidelines for .NET release notes.
   - ✅ `## \`System.Net.Http.Json\` added to implicit usings`
   - ❌ `## File-based apps: #:ref directive for NuGet packages`
   - ❌ `## Virtualize<TItem> supports variable-height items in AnchorMode`
+- **Always specify a language on fenced code blocks** — markdownlint MD040 blocks publish on any unlabeled ` ``` ` fence. Use the actual language for runnable snippets (`csharp`, `bash`, `json`, `xml`, `powershell`, `console`, `diff`), and use `text` for plain output, file trees, or pseudo-code where no language fits. This includes README.md tables of contents, runtime.md JIT codegen snippets, and every other fenced block — there is no exception.
+  - ✅ ` ```csharp `, ` ```bash `, ` ```json `, ` ```text `
+  - ❌ ` ``` ` (bare triple-backtick with no language)
 
 ## Benchmarks
 
