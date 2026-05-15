@@ -348,6 +348,40 @@ jobs:
           # so we can fail the run after processing all items.
           lint_failed=0
 
+          # Regenerate the auto-TOC in every changed .md that contains the
+          # `<!-- toc -->` / `<!-- tocstop -->` markers, then amend the tip
+          # commit if anything actually changed. Hand-written TOC entries
+          # between the markers are the #1 source of MD051 anchor-fragment
+          # failures (the agent slugifies headings by hand and gets it
+          # wrong, e.g. `mediatypesnames` instead of `mediatypenames`).
+          # Running markdown-toc here makes the TOC content authoritative
+          # regardless of what the agent wrote between the markers.
+          # Assumes the working tree is checked out on $branch (rebase did this).
+          regenerate_tocs() {
+            local branch="$1"
+            local touched=0
+            local md_files
+            md_files=$(git diff --name-only "origin/main...$branch" -- '*.md' 2>/dev/null || true)
+            [ -z "$md_files" ] && return 0
+            while IFS= read -r md_path; do
+              [ -z "$md_path" ] && continue
+              [ -f "$md_path" ] || continue
+              grep -q '<!-- toc -->' "$md_path" || continue
+              grep -q '<!-- tocstop -->' "$md_path" || continue
+              npx --yes markdown-toc -i "$md_path" --maxdepth 2 >/dev/null 2>&1 || true
+              if ! git diff --quiet -- "$md_path"; then
+                touched=1
+                git add "$md_path"
+              fi
+            done <<< "$md_files"
+            if [ "$touched" -eq 1 ]; then
+              git -c user.email="${GIT_AUTHOR_EMAIL:-actions@github.com}" \
+                  -c user.name="${GIT_AUTHOR_NAME:-github-actions[bot]}" \
+                  commit --amend --no-edit >/dev/null
+              echo "  TOC regenerated for $branch"
+            fi
+          }
+
           for i in $(seq 0 $((items_count - 1))); do
             item=$(jq -c ".items[$i]" "$agent_output")
             type=$(jq -r '.type' <<<"$item")
@@ -381,6 +415,10 @@ jobs:
                     lint_failed=1
                     continue
                   fi
+
+                  # Rebase succeeded; regenerate auto-TOCs in changed files
+                  # (replaces hand-written TOC entries between the markers).
+                  regenerate_tocs "$branch"
 
                   # Hard gate: refuse to push markdown that fails markdownlint.
                   # Lint the files this branch added or modified vs origin/main.
@@ -443,6 +481,9 @@ jobs:
                   lint_failed=1
                   continue
                 fi
+
+                # Rebase succeeded; regenerate auto-TOCs in changed files.
+                regenerate_tocs "$branch"
 
                 # Hard gate: refuse to push markdown that fails markdownlint.
                 # Lint the files this branch added or modified vs origin/main.
