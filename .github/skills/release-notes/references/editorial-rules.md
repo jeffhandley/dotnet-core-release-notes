@@ -54,6 +54,12 @@ Tone, attribution, and content guidelines for .NET release notes.
   - ❌ `## Memory Safety v2 adds clearer diagnostics in Preview 3`
   - ❌ `## Unsafe code adds clearer diagnostics and annotations`
 - Keep headings concise — 3–8 words
+- **Backtick all code identifiers in headings and link text** — type names (`Virtualize<TItem>`), method names (`Random.NextInteger<T>`), directives (`#:ref`, `#:package`), namespaces (`System.Net.Http.Json`), and constants. Unticked code-like text in headings breaks the GitHub-compatible heading-slug algorithm that markdownlint MD051 enforces — e.g. `## File-based apps: #:ref directive` is rejected because the inline parser drops `#:ref`; `## File-based apps: \`#:ref\` directive` is accepted and slugs cleanly. The publish-step TOC regenerator can fix wrong anchors but cannot fix wrong headings.
+  - ✅ `## \`#:ref\` directive for file-based app dependencies`
+  - ✅ `## \`Virtualize<TItem>\` supports variable-height items in AnchorMode`
+  - ✅ `## \`System.Net.Http.Json\` added to implicit usings`
+  - ❌ `## File-based apps: #:ref directive for NuGet packages`
+  - ❌ `## Virtualize<TItem> supports variable-height items in AnchorMode`
 
 ## Benchmarks
 
