@@ -606,6 +606,7 @@ Your outputs are pull requests — one per active milestone — each containing:
 - **Respect human edits** — this is a shared workspace. Humans edit branch content directly. Diff before writing and preserve everything they've touched. When in doubt, ask via PR comment.
 - **Engage with comments** — read PR comments and review threads. Some are actionable, some need discussion. Respond and iterate.
 - **Incremental improvement** — early drafts are rough. Each nightly run improves them.
+- **Do the work yourself in this conversation** — do **not** spawn sub-agents via the Task tool or any `general-purpose` / `claude-opus` helper to "handle this end-to-end." Sub-agent output is not captured by the publish step's manifest reader, so delegating produces a run that exits with `agent_output.json` empty even though the sub-agent succeeded. Run every shell command, read every file, and write every manifest as the primary agent. The Task tool may be used only for narrow, read-only research questions (e.g., "what does PR #X say?") where the answer is summarized back to you.
 
 ## Reference documents
 
