@@ -348,13 +348,57 @@ jobs:
           # so we can fail the run after processing all items.
           lint_failed=0
 
+          # Install the `github-slugger` package (GitHub's actual anchor
+          # slug algorithm, the one MD051 link-fragments validates against)
+          # to a workflow-local node_modules so regen-toc.js can require it.
+          # We use github-slugger directly rather than markdown-toc because
+          # markdown-toc's slugger diverges from GitHub for `<TItem>`-style
+          # generic args (strips angle bracket contents as HTML) and for
+          # `#:ref`-style headings (URL-encodes `#` as %23 instead of
+          # stripping it). Both cases produce TOC entries that MD051 rejects.
+          mkdir -p /tmp/toctool
+          ( cd /tmp/toctool && npm init -y >/dev/null 2>&1 && npm install --silent github-slugger >/dev/null 2>&1 )
+
+          # Inline the TOC regenerator.
+          cat > /tmp/toctool/regen-toc.js <<'TOC_JS_EOF'
+          const fs = require('fs');
+          const GithubSlugger = require('github-slugger').default || require('github-slugger');
+          const path = process.argv[2];
+          if (!path) { console.error('usage: regen-toc.js FILE.md'); process.exit(2); }
+          let content = fs.readFileSync(path, 'utf8');
+          const startMarker = '<!-- toc -->';
+          const endMarker = '<!-- tocstop -->';
+          const start = content.indexOf(startMarker);
+          const end = content.indexOf(endMarker);
+          if (start === -1 || end === -1 || end < start) process.exit(0);
+          const slugger = new GithubSlugger();
+          const lines = content.split('\n');
+          const entries = [];
+          let inCode = false;
+          for (const line of lines) {
+            if (/^```/.test(line)) { inCode = !inCode; continue; }
+            if (inCode) continue;
+            const m = /^##\s+([^#].*)$/.exec(line);
+            if (!m) continue;
+            const text = m[1].trimEnd();
+            const plain = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[`*_]/g, '');
+            const slug = slugger.slug(plain);
+            entries.push(`- [${text}](#${slug})`);
+          }
+          const toc = entries.length
+            ? `${startMarker}\n\n${entries.join('\n')}\n\n${endMarker}`
+            : `${startMarker}\n${endMarker}`;
+          const out = content.slice(0, start) + toc + content.slice(end + endMarker.length);
+          fs.writeFileSync(path, out);
+          TOC_JS_EOF
+
           # Regenerate the auto-TOC in every changed .md that contains the
           # `<!-- toc -->` / `<!-- tocstop -->` markers, then amend the tip
           # commit if anything actually changed. Hand-written TOC entries
           # between the markers are the #1 source of MD051 anchor-fragment
           # failures (the agent slugifies headings by hand and gets it
           # wrong, e.g. `mediatypesnames` instead of `mediatypenames`).
-          # Running markdown-toc here makes the TOC content authoritative
+          # Running the regenerator here makes the TOC content authoritative
           # regardless of what the agent wrote between the markers.
           # Assumes the working tree is checked out on $branch (rebase did this).
           regenerate_tocs() {
@@ -368,7 +412,7 @@ jobs:
               [ -f "$md_path" ] || continue
               grep -q '<!-- toc -->' "$md_path" || continue
               grep -q '<!-- tocstop -->' "$md_path" || continue
-              npx --yes markdown-toc -i "$md_path" --maxdepth 2 >/dev/null 2>&1 || true
+              ( cd /tmp/toctool && node regen-toc.js "$GITHUB_WORKSPACE/$md_path" ) || true
               if ! git diff --quiet -- "$md_path"; then
                 touched=1
                 git add "$md_path"
