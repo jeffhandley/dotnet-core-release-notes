@@ -128,6 +128,9 @@ steps:
 
       git config user.email "actions@github.com"
       git config user.name "github-actions[bot]"
+      # Bundles from the source run are incremental against full history.
+      # The default checkout is shallow (depth=1), so unshallow before fetching bundles.
+      git fetch --unshallow origin 2>/dev/null || git fetch origin
       git fetch --quiet origin main
 
       shopt -s nullglob
