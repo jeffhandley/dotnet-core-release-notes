@@ -348,83 +348,14 @@ jobs:
           # so we can fail the run after processing all items.
           lint_failed=0
 
-          # Install the `github-slugger` package (GitHub's actual anchor
-          # slug algorithm, the one MD051 link-fragments validates against)
-          # to a workflow-local node_modules so regen-toc.js can require it.
-          # We use github-slugger directly rather than markdown-toc because
-          # markdown-toc's slugger diverges from GitHub for `<TItem>`-style
-          # generic args (strips angle bracket contents as HTML) and for
-          # `#:ref`-style headings (URL-encodes `#` as %23 instead of
-          # stripping it). Both cases produce TOC entries that MD051 rejects.
-          mkdir -p /tmp/toctool
-          ( cd /tmp/toctool && npm init -y >/dev/null 2>&1 && npm install --silent github-slugger >/dev/null 2>&1 )
-
-          # Inline the TOC regenerator.
-          cat > /tmp/toctool/regen-toc.js <<'TOC_JS_EOF'
-          const fs = require('fs');
-          const GithubSlugger = require('github-slugger').default || require('github-slugger');
-          const path = process.argv[2];
-          if (!path) { console.error('usage: regen-toc.js FILE.md'); process.exit(2); }
-          let content = fs.readFileSync(path, 'utf8');
-          const startMarker = '<!-- toc -->';
-          const endMarker = '<!-- tocstop -->';
-          const start = content.indexOf(startMarker);
-          const end = content.indexOf(endMarker);
-          if (start === -1 || end === -1 || end < start) process.exit(0);
-          const slugger = new GithubSlugger();
-          const lines = content.split('\n');
-          const entries = [];
-          let inCode = false;
-          for (const line of lines) {
-            if (/^```/.test(line)) { inCode = !inCode; continue; }
-            if (inCode) continue;
-            const m = /^##\s+([^#].*)$/.exec(line);
-            if (!m) continue;
-            const text = m[1].trimEnd();
-            const plain = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/`/g, '');
-            const slug = slugger.slug(plain);
-            entries.push(`- [${text}](#${slug})`);
-          }
-          const toc = entries.length
-            ? `${startMarker}\n\n${entries.join('\n')}\n\n${endMarker}`
-            : `${startMarker}\n${endMarker}`;
-          const out = content.slice(0, start) + toc + content.slice(end + endMarker.length);
-          fs.writeFileSync(path, out);
-          TOC_JS_EOF
-
-          # Regenerate the auto-TOC in every changed .md that contains the
-          # `<!-- toc -->` / `<!-- tocstop -->` markers, then amend the tip
-          # commit if anything actually changed. Hand-written TOC entries
-          # between the markers are the #1 source of MD051 anchor-fragment
-          # failures (the agent slugifies headings by hand and gets it
-          # wrong, e.g. `mediatypesnames` instead of `mediatypenames`).
-          # Running the regenerator here makes the TOC content authoritative
-          # regardless of what the agent wrote between the markers.
-          # Assumes the working tree is checked out on $branch (rebase did this).
-          regenerate_tocs() {
-            local branch="$1"
-            local touched=0
-            local md_files
-            md_files=$(git diff --name-only "origin/main...$branch" -- '*.md' 2>/dev/null || true)
-            [ -z "$md_files" ] && return 0
-            while IFS= read -r md_path; do
-              [ -z "$md_path" ] && continue
-              [ -f "$md_path" ] || continue
-              grep -q '<!-- toc -->' "$md_path" || continue
-              grep -q '<!-- tocstop -->' "$md_path" || continue
-              ( cd /tmp/toctool && node regen-toc.js "$GITHUB_WORKSPACE/$md_path" ) || true
-              if ! git diff --quiet -- "$md_path"; then
-                touched=1
-                git add "$md_path"
-              fi
-            done <<< "$md_files"
-            if [ "$touched" -eq 1 ]; then
-              git -c user.email="${GIT_AUTHOR_EMAIL:-actions@github.com}" \
-                  -c user.name="${GIT_AUTHOR_NAME:-github-actions[bot]}" \
-                  commit --amend --no-edit >/dev/null
-              echo "  TOC regenerated for $branch"
-            fi
-          }
+          # Source the shared prep helpers (setup_toc_tool, regenerate_tocs,
+          # normalize_markdown_files, lint_branch). Keeping these in
+          # .github/scripts/ rather than inline here means the same TOC
+          # algorithm and tier-1 normalizer are used by both this publish
+          # step and the fix-release-notes-lint workflow, so they cannot
+          # drift.
+          source "$GITHUB_WORKSPACE/.github/scripts/release-notes-publish-prep.sh"
+          setup_toc_tool
 
           for i in $(seq 0 $((items_count - 1))); do
             item=$(jq -c ".items[$i]" "$agent_output")
@@ -460,9 +391,13 @@ jobs:
                     continue
                   fi
 
-                  # Rebase succeeded; regenerate auto-TOCs in changed files
-                  # (replaces hand-written TOC entries between the markers).
-                  regenerate_tocs "$branch"
+                  # Rebase succeeded; run the tier-1 markdown normalizer
+                  # on changed files: regenerates TOCs between markers,
+                  # rewrites broken `#anchor` fragments (MD051), adds a
+                  # language to bare code fences (MD040), then runs
+                  # `markdownlint --fix` for the remaining auto-fixable
+                  # rules. Amends the tip commit if anything changed.
+                  normalize_markdown_files "$branch"
 
                   # Hard gate: refuse to push markdown that fails markdownlint.
                   # Lint the files this branch added or modified vs origin/main.
@@ -526,8 +461,9 @@ jobs:
                   continue
                 fi
 
-                # Rebase succeeded; regenerate auto-TOCs in changed files.
-                regenerate_tocs "$branch"
+                # Rebase succeeded; run the tier-1 markdown normalizer
+                # (TOC regen + MD040/MD051 fixes + markdownlint --fix).
+                normalize_markdown_files "$branch"
 
                 # Hard gate: refuse to push markdown that fails markdownlint.
                 # Lint the files this branch added or modified vs origin/main.

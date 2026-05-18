@@ -3,16 +3,109 @@
 # fix-release-notes-lint.md (fixup workflow). Sourced, not executed.
 #
 # Provides:
-#   setup_toc_tool          — install github-slugger and emit /tmp/toctool/regen-toc.js
-#   regenerate_tocs BRANCH  — regenerate `<!-- toc -->` blocks in files this branch
-#                             added/modified vs origin/main, amending the tip commit
-#   lint_branch BRANCH OUT  — run markdownlint against each .md this branch
-#                             added/modified vs origin/main; writes violations to OUT;
-#                             returns 0 if clean, 1 if any file failed
+#   setup_toc_tool                  — install github-slugger and emit
+#                                     /tmp/toctool/regen-toc.js and
+#                                     /tmp/toctool/normalize-md.js
+#   regenerate_tocs BRANCH          — regenerate `<!-- toc -->` blocks in files
+#                                     this branch added/modified vs origin/main,
+#                                     amending the tip commit
+#   normalize_markdown_files BRANCH — deterministic tier-1 normalizer: runs
+#                                     regenerate_tocs, then a body-level fixer
+#                                     for MD040 (bare fences) and MD051
+#                                     (anchor fragments), then markdownlint
+#                                     --fix; amends the tip commit if changed
+#   lint_branch BRANCH OUT          — run markdownlint against each .md this
+#                                     branch added/modified vs origin/main;
+#                                     writes violations to OUT; returns 0 if
+#                                     clean, 1 if any file failed
 
 setup_toc_tool() {
   mkdir -p /tmp/toctool
   ( cd /tmp/toctool && npm init -y >/dev/null 2>&1 && npm install --silent github-slugger >/dev/null 2>&1 )
+
+  # Body-level normalizer that fixes the two most common deterministic
+  # lint failures agent-generated markdown produces:
+  #   - MD040: fenced code blocks without a language. Bare ``` opens get
+  #     `text` appended (chosen because it is universally safe and renders
+  #     as a plain code block on GitHub).
+  #   - MD051: body links of the form `[label](#anchor)` whose anchor does
+  #     not match any heading slug in the file. The fixer recomputes the
+  #     correct slug from the link label, falling back to a normalized
+  #     lookup against the heading slug table. Anchors that cannot be
+  #     resolved to an existing heading are left alone so markdownlint
+  #     surfaces them rather than the normalizer silently making them
+  #     look "correct".
+  cat > /tmp/toctool/normalize-md.js <<'NORM_JS_EOF'
+const fs = require('fs');
+const GithubSlugger = require('github-slugger').default || require('github-slugger');
+const path = process.argv[2];
+if (!path) { console.error('usage: normalize-md.js FILE.md'); process.exit(2); }
+
+const original = fs.readFileSync(path, 'utf8');
+const lines = original.split('\n');
+
+// Pass 1: collect heading slugs and a normalized lookup table.
+const slugger = new GithubSlugger();
+const headingSlugs = new Set();
+const normToSlug = new Map();
+let inCode = false;
+for (const line of lines) {
+  if (/^```/.test(line)) { inCode = !inCode; continue; }
+  if (inCode) continue;
+  const m = /^#{1,6}\s+(.+)$/.exec(line);
+  if (!m) continue;
+  const heading = m[1].trim();
+  const plain = heading.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/`/g, '');
+  const slug = slugger.slug(plain);
+  headingSlugs.add(slug);
+  const key = plain.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  if (!normToSlug.has(key)) normToSlug.set(key, slug);
+}
+
+// Pass 2: rewrite bad anchors (MD051) and bare fences (MD040).
+const out = [];
+inCode = false;
+for (let line of lines) {
+  const fenceOpen = /^(\s*)```\s*$/.exec(line);
+  if (fenceOpen) {
+    if (!inCode) {
+      // Bare opening fence — give it a default language.
+      line = `${fenceOpen[1]}\`\`\`text`;
+    }
+    inCode = !inCode;
+    out.push(line);
+    continue;
+  }
+  if (/^\s*```/.test(line)) {
+    // Fence with language, or closing fence.
+    inCode = !inCode;
+    out.push(line);
+    continue;
+  }
+  if (inCode) { out.push(line); continue; }
+
+  // Rewrite [label](#anchor) where the anchor doesn't resolve.
+  line = line.replace(/(\[([^\]]+)\])\(#([^)]+)\)/g, (full, label, text, anchor) => {
+    if (headingSlugs.has(anchor)) return full;
+    const plain = text.replace(/`/g, '');
+    const recomputed = new GithubSlugger().slug(plain);
+    if (headingSlugs.has(recomputed)) return `${label}(#${recomputed})`;
+    const key = plain.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    const viaText = normToSlug.get(key);
+    if (viaText) return `${label}(#${viaText})`;
+    const lc = anchor.toLowerCase();
+    if (headingSlugs.has(lc)) return `${label}(#${lc})`;
+    return full;
+  });
+
+  out.push(line);
+}
+
+const next = out.join('\n');
+if (next !== original) {
+  fs.writeFileSync(path, next);
+}
+NORM_JS_EOF
 
   cat > /tmp/toctool/regen-toc.js <<'TOC_JS_EOF'
 const fs = require('fs');
@@ -102,4 +195,62 @@ lint_branch() {
   fi
   rm -rf "$tmpdir" "$out.raw" 2>/dev/null || true
   return $any_failed
+}
+
+# Deterministic tier-1 markdown normalizer. For every .md this branch
+# added/modified vs origin/main, runs:
+#   1. regenerate_tocs (handles <!-- toc --> blocks the agent typed by hand)
+#   2. /tmp/toctool/normalize-md.js (fixes MD040 bare fences and MD051
+#      bad anchor links anywhere in the file body)
+#   3. markdownlint-cli --fix (auto-fixable rules: MD009 trailing-spaces,
+#      MD010 tabs, MD012 blank-line groups, MD018-021 ATX spacing,
+#      MD023 heading start, MD026 trailing punct, MD027 blockquote spaces,
+#      MD030 list-marker spaces, MD031/MD032 fence/list surrounds,
+#      MD034 bare urls, MD044 proper names, MD047 file end newline)
+# Each step is idempotent. If any file changed, the tip commit is amended.
+# Working tree must be checked out on $branch.
+normalize_markdown_files() {
+  local branch="$1"
+  local touched=0
+  local md_files
+  md_files=$(git diff --name-only "origin/main...$branch" -- '*.md' 2>/dev/null || true)
+  [ -z "$md_files" ] && return 0
+
+  # Step 1: TOC regen (only touches files with explicit markers).
+  regenerate_tocs "$branch"
+
+  # Refresh the diff in case regen amended the tip commit.
+  md_files=$(git diff --name-only "origin/main...$branch" -- '*.md' 2>/dev/null || true)
+  [ -z "$md_files" ] && return 0
+
+  # Step 2: body-level normalizer (MD040 + MD051).
+  while IFS= read -r md_path; do
+    [ -z "$md_path" ] && continue
+    [ -f "$md_path" ] || continue
+    ( cd /tmp/toctool && node normalize-md.js "$GITHUB_WORKSPACE/$md_path" ) || true
+    if ! git diff --quiet -- "$md_path"; then
+      touched=1
+      git add "$md_path"
+    fi
+  done <<< "$md_files"
+
+  # Step 3: markdownlint --fix for the rules it can auto-correct.
+  while IFS= read -r md_path; do
+    [ -z "$md_path" ] && continue
+    [ -f "$md_path" ] || continue
+    npx --yes markdownlint-cli \
+      --config "$GITHUB_WORKSPACE/.github/linters/.markdown-lint.yml" \
+      --fix "$md_path" >/dev/null 2>&1 || true
+    if ! git diff --quiet -- "$md_path"; then
+      touched=1
+      git add "$md_path"
+    fi
+  done <<< "$md_files"
+
+  if [ "$touched" -eq 1 ]; then
+    git -c user.email="${GIT_AUTHOR_EMAIL:-actions@github.com}" \
+        -c user.name="${GIT_AUTHOR_NAME:-github-actions[bot]}" \
+        commit --amend --no-edit >/dev/null
+    echo "  Markdown normalized for $branch"
+  fi
 }
