@@ -771,13 +771,24 @@ If provenance is ambiguous, preserve the existing text and ask on the PR before 
 
 #### e. Read milestone hints
 
-Before scoring or writing, check whether the milestone has a `hints/` directory:
+Milestone hints are branch-local editorial metadata. They belong only on the
+features branch (`$branch_features`) so a human can decide whether to merge them
+once for the milestone. They must never be copied to component branches.
+
+Before scoring or writing, check whether the **features branch** has a
+`$content_dir/hints/` directory:
 
 ```bash
-ls "$content_dir/hints/" 2>/dev/null || true
+if git show-ref --verify --quiet "refs/remotes/origin/$branch_features"; then
+  git ls-tree -r --name-only "origin/$branch_features" -- "$content_dir/hints/"
+fi
 ```
 
-If hint files exist, read every `.md` file in `hints/`. Hints are **hard constraints** — they override your default scoring and framing decisions. Treat `type: fact` hints as inviolable facts; treat `type: scoring` and `type: editorial` hints as mandatory scoring and wording rules.
+If hint files exist on the features branch, read every `.md` file from
+`origin/$branch_features:$content_dir/hints/`. Hints are **hard constraints** —
+they override your default scoring and framing decisions. Treat `type: fact`
+hints as inviolable facts; treat `type: scoring` and `type: editorial` hints as
+mandatory scoring and wording rules.
 
 Apply each hint to every relevant `features.json` entry and to every markdown section you write or update in this run.
 
@@ -799,7 +810,7 @@ Using `features.json`, `changes.json`, the reference documents, and any mileston
   fi
   ```
 
-  Write or update *only* `$content_dir/<component-id>.md` inside that worktree. Do **not** copy `changes.json`, `features.json`, or any other component's `.md` into the worktree. If this is an existing component branch from an earlier run and it contains sibling component files such as `$content_dir/csharp.md` on the SDK branch, remove those stale files before committing; a component branch must not carry markdown for any component other than its own `<component-id>.md`. If an existing `sdk.md` contains C# language sections from a prior bad run, remove those sections from `sdk.md` and write them only to the `csharp` component branch.
+  Write or update *only* `$content_dir/<component-id>.md` inside that worktree. Do **not** copy `changes.json`, `features.json`, `$content_dir/hints/`, or any other component's `.md` into the worktree. If this is an existing component branch from an earlier run and it contains sibling component files such as `$content_dir/csharp.md` on the SDK branch, remove those stale files before committing; a component branch must not carry markdown for any component other than its own `<component-id>.md`. If an existing `sdk.md` contains C# language sections from a prior bad run, remove those sections from `sdk.md` and write them only to the `csharp` component branch.
 
   **Do not hand-write the table of contents.** Leave a placeholder bracketed by HTML markers near the top of the file (after the title and intro sentence), then run `markdown-toc` to populate it from the `##` headings. This eliminates anchor typos and orphaned TOC entries when headings are renamed, clustered, or removed.
 
@@ -845,6 +856,7 @@ Separately, prepare the **features branch** worktree (`$branch_features`) contai
 - `$content_dir/features.json`
 - `$content_dir/build-metadata.json` (always present — regenerated in step (a2))
 - `$content_dir/README.md` — milestone landing page / index linking to each component file
+- `$content_dir/hints/` — optional editorial hints for this milestone; keep them only here, never on component branches
 - Any other non-component metadata that belongs in the milestone directory (e.g. `release.json`) when applicable
 
 Do **not** include component `.md` files on the features branch.

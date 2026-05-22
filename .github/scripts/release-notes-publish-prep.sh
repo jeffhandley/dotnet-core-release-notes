@@ -217,10 +217,22 @@ normalize_markdown_files() {
   local md_files
 
   # Component branches are named <features-branch>-<component-id> and must only
-  # carry that component's markdown file. Prune stale sibling files left behind
-  # by earlier bad runs before linting and pushing.
+  # carry that component's markdown file. Prune stale sibling files and
+  # feature-branch-only metadata (notably hints/) left behind by earlier bad
+  # runs before linting and pushing.
   if [[ "$branch" == *-features-* ]]; then
     local component_id="${branch##*-features-}"
+    local changed_release_paths
+    changed_release_paths=$(git diff --name-only "origin/main...$branch" -- 'release-notes' 2>/dev/null || true)
+    while IFS= read -r release_path; do
+      [ -z "$release_path" ] && continue
+      if [[ "$release_path" == */hints/* ]] && [ -f "$release_path" ]; then
+        git rm -f "$release_path" >/dev/null
+        touched=1
+        echo "  Removed feature-branch-only hint from $branch: $release_path"
+      fi
+    done <<< "$changed_release_paths"
+
     local changed_release_md
     changed_release_md=$(git diff --name-only "origin/main...$branch" -- 'release-notes' 2>/dev/null | grep '\.md$' || true)
     while IFS= read -r md_path; do
