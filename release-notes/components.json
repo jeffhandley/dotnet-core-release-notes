@@ -37,12 +37,24 @@
         "dotnet/installer",
         "dotnet/templating",
         "dotnet/msbuild",
-        "dotnet/roslyn",
-        "dotnet/fsharp",
         "NuGet/NuGet.Client"
       ],
       "areas": [],
       "content_dir": "release-notes/{milestone}/sdk"
+    },
+    {
+      "id": "csharp",
+      "title": "C#",
+      "repos": ["dotnet/roslyn"],
+      "areas": [],
+      "content_dir": "release-notes/{milestone}/csharp"
+    },
+    {
+      "id": "fsharp",
+      "title": "F#",
+      "repos": ["dotnet/fsharp"],
+      "areas": [],
+      "content_dir": "release-notes/{milestone}/fsharp"
     },
     {
       "id": "aspnetcore",

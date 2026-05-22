@@ -608,7 +608,7 @@ repository context into local files:
 
 - `/tmp/gh-aw/agent/context-index.json`
 - `/tmp/gh-aw/agent/target.json` — **the single source of truth for what this run targets** (see below)
-- `/tmp/gh-aw/agent/components.json` — copy of `release-notes/components.json` for component routing
+- `/tmp/gh-aw/agent/components.json` — copy of `release-notes/components.json` for component routing; this is the authoritative list of component branch ids and repo ownership
 - `/tmp/gh-aw/agent/release-notes-prs.json`
 - `/tmp/gh-aw/agent/release-notes-branches.txt`
 - `/tmp/gh-aw/agent/pr-comments/<pr>-issue-comments.json`
@@ -688,7 +688,7 @@ Process targets in array order. Each target has its own family of long-lived bra
 - **Features branch** — `target.branch_features` (e.g. `release-notes/dotnet-11-preview-5-features`). Holds the **shared data** for the milestone: `changes.json`, `features.json`, `README.md`, and any other non-component metadata (e.g. `build-metadata.json`, `release.json`) that lives in `content_dir`. **Never write per-component `.md` files to this branch.**
 - **Component branches** — one branch per component that has noteworthy features in this milestone, named `<target.branch_features>-<component-id>` (e.g. `release-notes/dotnet-11-preview-5-features-runtime`, `…-aspnetcore`). Each component branch contains **only that component's `.md` file** inside `content_dir`. Components with no noteworthy features do **not** get a branch and do **not** get a stub `.md` — skip them entirely.
 
-Component IDs come from `release-notes/components.json` (the `id` field of each component, which matches the markdown file stem, e.g. `runtime` → `runtime.md`). Use `jq -r '.components[].id' /tmp/gh-aw/agent/components.json` to enumerate them.
+Component IDs come from `release-notes/components.json` (the `id` field of each component, which matches the markdown file stem, e.g. `runtime` → `runtime.md`). Use `jq -r '.components[].id' /tmp/gh-aw/agent/components.json` to enumerate them. The repo lists in that file define ownership boundaries: do not route a PR from one component's repo into another component just because the topic is adjacent. In particular, `dotnet/roslyn` belongs to `csharp` (`csharp.md` / `<branch_features>-csharp`), not `sdk`; do not duplicate C# language content in `sdk.md`.
 
 #### a. Regenerate changes.json
 
@@ -826,7 +826,7 @@ Using `features.json`, `changes.json`, the reference documents, and any mileston
   fi
   ```
 
-  Write or update *only* `$content_dir/<component-id>.md` inside that worktree. Do **not** copy `changes.json`, `features.json`, or any other component's `.md` into the worktree.
+  Write or update *only* `$content_dir/<component-id>.md` inside that worktree. Do **not** copy `changes.json`, `features.json`, or any other component's `.md` into the worktree. If this is an existing component branch from an earlier run and it contains sibling component files such as `$content_dir/csharp.md` on the SDK branch, remove those stale files before committing; a component branch must not carry markdown for any component other than its own `<component-id>.md`. If an existing `sdk.md` contains C# language sections from a prior bad run, remove those sections from `sdk.md` and write them only to the `csharp` component branch.
 
   **Do not hand-write the table of contents.** Leave a placeholder bracketed by HTML markers near the top of the file (after the title and intro sentence), then run `markdown-toc` to populate it from the `##` headings. This eliminates anchor typos and orphaned TOC entries when headings are renamed, clustered, or removed.
 

@@ -35,7 +35,7 @@ The `runtime` manifest entry covers both Libraries and Runtime. When writing mar
 
 - **Razor → ASP.NET Core** — `dotnet/razor` PRs go in `aspnetcore.md`
 - **Templating → SDK** — `dotnet/templating` PRs go in `sdk.md`
-- **Roslyn** — covers both C# and Visual Basic. Check PR labels/titles to determine language. Produce `csharp.md` (and `visualbasic.md` if VB-specific features exist).
+- **Roslyn → C#** — `dotnet/roslyn` PRs that describe C# language or compiler behavior go in `csharp.md`, never in `sdk.md`. If a Visual Basic-specific user-facing feature exists, create `visualbasic.md` rather than mixing it into SDK notes.
 - **Apply the product-boundary rule** — Razor editor code actions, language-server behavior, and other IDE-only experiences are usually tooling stories, not ASP.NET Core product notes. See `editorial-rules.md`.
 
 ### Infrastructure components (skip for release notes)
@@ -60,9 +60,11 @@ These appear in `source-manifest.json` but rarely produce user-facing changes:
 
 These components appear in `changes.json` for completeness but typically don't warrant markdown release notes.
 
-## Expected output files per preview
+## Candidate output files per preview
 
-Every preview should produce these files (stubs for components with no noteworthy changes):
+The workflow creates `README.md`, `changes.json`, `features.json`, and one component
+file per component that has noteworthy user-facing changes. Components with no
+noteworthy changes should not get empty stubs.
 
 ```text
 README.md              # Index/TOC linking to all component files
