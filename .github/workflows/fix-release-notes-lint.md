@@ -35,6 +35,7 @@ tools:
 timeout-minutes: 60
 
 on:
+  permissions: {}
   workflow_run:
     workflows: ["Write Release Notes"]
     types: [completed]
@@ -46,43 +47,6 @@ on:
         description: "Write Release Notes run ID to recover blocked branches from. Leave empty to use the most recent completed run."
         required: false
         type: string
-
-  steps:
-    # ###############################################################
-    # Override the COPILOT_GITHUB_TOKEN secret usage for the workflow
-    # with a randomly-selected token from a pool of secrets.
-    # See: /.github/actions/select-copilot-pat/README.md
-    # ###############################################################
-    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      name: Checkout the select-copilot-pat action folder
-      with:
-        persist-credentials: false
-        sparse-checkout: .github/actions/select-copilot-pat
-        sparse-checkout-cone-mode: true
-        fetch-depth: 1
-
-    - id: select-copilot-pat
-      name: Select Copilot token from pool
-      uses: ./.github/actions/select-copilot-pat
-      env:
-        SECRET_0: ${{ secrets.COPILOT_PAT_0 }}
-        SECRET_1: ${{ secrets.COPILOT_PAT_1 }}
-        SECRET_2: ${{ secrets.COPILOT_PAT_2 }}
-        SECRET_3: ${{ secrets.COPILOT_PAT_3 }}
-        SECRET_4: ${{ secrets.COPILOT_PAT_4 }}
-        SECRET_5: ${{ secrets.COPILOT_PAT_5 }}
-        SECRET_6: ${{ secrets.COPILOT_PAT_6 }}
-        SECRET_7: ${{ secrets.COPILOT_PAT_7 }}
-        SECRET_8: ${{ secrets.COPILOT_PAT_8 }}
-        SECRET_9: ${{ secrets.COPILOT_PAT_9 }}
-
-engine:
-  id: copilot
-  version: "1.0.43"
-  env:
-    # If none of the COPILOT_PAT_# secrets were selected, fall back to COPILOT_GITHUB_TOKEN.
-    COPILOT_GITHUB_TOKEN: ${{ case(needs.pre_activation.outputs.copilot_pat_number == '0', secrets.COPILOT_PAT_0, needs.pre_activation.outputs.copilot_pat_number == '1', secrets.COPILOT_PAT_1, needs.pre_activation.outputs.copilot_pat_number == '2', secrets.COPILOT_PAT_2, needs.pre_activation.outputs.copilot_pat_number == '3', secrets.COPILOT_PAT_3, needs.pre_activation.outputs.copilot_pat_number == '4', secrets.COPILOT_PAT_4, needs.pre_activation.outputs.copilot_pat_number == '5', secrets.COPILOT_PAT_5, needs.pre_activation.outputs.copilot_pat_number == '6', secrets.COPILOT_PAT_6, needs.pre_activation.outputs.copilot_pat_number == '7', secrets.COPILOT_PAT_7, needs.pre_activation.outputs.copilot_pat_number == '8', secrets.COPILOT_PAT_8, needs.pre_activation.outputs.copilot_pat_number == '9', secrets.COPILOT_PAT_9, secrets.COPILOT_GITHUB_TOKEN) }}
-    GITHUB_TOKEN: ${{ github.token }}
 
 steps:
   - name: Determine source run id
@@ -259,10 +223,6 @@ post-steps:
       jq '.' "$out"
 
 jobs:
-  pre-activation:
-    outputs:
-      copilot_pat_number: ${{ steps.select-copilot-pat.outputs.copilot_pat_number }}
-
   publish_fixed_branches:
     name: Publish fixed release-notes branches
     needs: [agent]
@@ -376,6 +336,23 @@ jobs:
             echo "" >> "$summary"
             echo "_No branches were pushed._" >> "$summary"
           fi
+
+# ###############################################################
+# Override COPILOT_GITHUB_TOKEN with a random PAT from the pool.
+# This stop-gap will be removed when org billing is available.
+# See: .github/workflows/shared/pat_pool.README.md for more info.
+# ###############################################################
+imports:
+  - shared/pat_pool.md
+
+engine:
+  id: copilot
+  version: "1.0.43"
+  env:
+    # If none of the COPILOT_PAT_# secrets were selected, fall back to COPILOT_GITHUB_TOKEN.
+    COPILOT_GITHUB_TOKEN: ${{ case(needs.pat_pool.outputs.pat_number == '0', secrets.COPILOT_PAT_0, needs.pat_pool.outputs.pat_number == '1', secrets.COPILOT_PAT_1, needs.pat_pool.outputs.pat_number == '2', secrets.COPILOT_PAT_2, needs.pat_pool.outputs.pat_number == '3', secrets.COPILOT_PAT_3, needs.pat_pool.outputs.pat_number == '4', secrets.COPILOT_PAT_4, needs.pat_pool.outputs.pat_number == '5', secrets.COPILOT_PAT_5, needs.pat_pool.outputs.pat_number == '6', secrets.COPILOT_PAT_6, needs.pat_pool.outputs.pat_number == '7', secrets.COPILOT_PAT_7, needs.pat_pool.outputs.pat_number == '8', secrets.COPILOT_PAT_8, needs.pat_pool.outputs.pat_number == '9', secrets.COPILOT_PAT_9, secrets.COPILOT_GITHUB_TOKEN) }}
+    GITHUB_TOKEN: ${{ github.token }}
+
 ---
 
 # Fix Release Notes Lint
