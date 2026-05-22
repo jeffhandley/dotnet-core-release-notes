@@ -10,10 +10,11 @@
 #                                     this branch added/modified vs origin/main,
 #                                     amending the tip commit
 #   normalize_markdown_files BRANCH — deterministic tier-1 normalizer: runs
-#                                     regenerate_tocs, then a body-level fixer
-#                                     for MD040 (bare fences) and MD051
-#                                     (anchor fragments), then markdownlint
-#                                     --fix; amends the tip commit if changed
+#                                     component-branch pruning, regenerate_tocs,
+#                                     then a body-level fixer for MD040 (bare
+#                                     fences) and MD051 (anchor fragments), then
+#                                     markdownlint --fix; amends the tip commit
+#                                     if changed
 #   lint_branch BRANCH OUT          — run markdownlint against each .md this
 #                                     branch added/modified vs origin/main;
 #                                     writes violations to OUT; returns 0 if
@@ -199,10 +200,11 @@ lint_branch() {
 
 # Deterministic tier-1 markdown normalizer. For every .md this branch
 # added/modified vs origin/main, runs:
-#   1. regenerate_tocs (handles <!-- toc --> blocks the agent typed by hand)
-#   2. /tmp/toctool/normalize-md.js (fixes MD040 bare fences and MD051
+#   1. component-branch pruning (removes sibling component .md files)
+#   2. regenerate_tocs (handles <!-- toc --> blocks the agent typed by hand)
+#   3. /tmp/toctool/normalize-md.js (fixes MD040 bare fences and MD051
 #      bad anchor links anywhere in the file body)
-#   3. markdownlint-cli --fix (auto-fixable rules: MD009 trailing-spaces,
+#   4. markdownlint-cli --fix (auto-fixable rules: MD009 trailing-spaces,
 #      MD010 tabs, MD012 blank-line groups, MD018-021 ATX spacing,
 #      MD023 heading start, MD026 trailing punct, MD027 blockquote spaces,
 #      MD030 list-marker spaces, MD031/MD032 fence/list surrounds,
@@ -213,17 +215,56 @@ normalize_markdown_files() {
   local branch="$1"
   local touched=0
   local md_files
-  md_files=$(git diff --name-only "origin/main...$branch" -- '*.md' 2>/dev/null || true)
-  [ -z "$md_files" ] && return 0
 
-  # Step 1: TOC regen (only touches files with explicit markers).
+  # Component branches are named <features-branch>-<component-id> and must only
+  # carry that component's markdown file. Prune stale sibling files left behind
+  # by earlier bad runs before linting and pushing.
+  if [[ "$branch" == *-features-* ]]; then
+    local component_id="${branch##*-features-}"
+    local changed_release_md
+    changed_release_md=$(git diff --name-only "origin/main...$branch" -- 'release-notes' 2>/dev/null | grep '\.md$' || true)
+    while IFS= read -r md_path; do
+      [ -z "$md_path" ] && continue
+      local md_name
+      md_name=$(basename "$md_path")
+      if [ "$md_name" = "README.md" ] || [ "$md_name" = "$component_id.md" ]; then
+        continue
+      fi
+      if [ -f "$md_path" ]; then
+        git rm -f "$md_path" >/dev/null
+        touched=1
+        echo "  Removed stale component file from $branch: $md_path"
+      fi
+    done <<< "$changed_release_md"
+  fi
+
+  md_files=$(git diff --name-only "origin/main...$branch" -- '*.md' 2>/dev/null || true)
+  if [ -z "$md_files" ]; then
+    if [ "$touched" -eq 1 ]; then
+      git -c user.email="${GIT_AUTHOR_EMAIL:-actions@github.com}" \
+          -c user.name="${GIT_AUTHOR_NAME:-github-actions[bot]}" \
+          commit --amend --no-edit >/dev/null
+      echo "  Markdown normalized for $branch"
+    fi
+    return 0
+  fi
+
+  # Step 2: TOC regen (only touches files with explicit markers).
   regenerate_tocs "$branch"
 
   # Refresh the diff in case regen amended the tip commit.
   md_files=$(git diff --name-only "origin/main...$branch" -- '*.md' 2>/dev/null || true)
-  [ -z "$md_files" ] && return 0
+  if [ -z "$md_files" ]; then
+    if [ "$touched" -eq 1 ]; then
+      git -c user.email="${GIT_AUTHOR_EMAIL:-actions@github.com}" \
+          -c user.name="${GIT_AUTHOR_NAME:-github-actions[bot]}" \
+          commit --amend --no-edit >/dev/null
+      echo "  Markdown normalized for $branch"
+    fi
+    return 0
+  fi
 
-  # Step 2: body-level normalizer (MD040 + MD051).
+  # Step 3: body-level normalizer (MD040 + MD051).
   while IFS= read -r md_path; do
     [ -z "$md_path" ] && continue
     [ -f "$md_path" ] || continue
@@ -234,7 +275,7 @@ normalize_markdown_files() {
     fi
   done <<< "$md_files"
 
-  # Step 3: markdownlint --fix for the rules it can auto-correct.
+  # Step 4: markdownlint --fix for the rules it can auto-correct.
   while IFS= read -r md_path; do
     [ -z "$md_path" ] && continue
     [ -f "$md_path" ] || continue
