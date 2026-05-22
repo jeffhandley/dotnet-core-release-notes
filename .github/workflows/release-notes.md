@@ -796,9 +796,21 @@ If a component branch already has drafted markdown, that content is the **baseli
 
 If provenance is ambiguous, preserve the existing text and ask on the PR before changing it.
 
-#### e. Write or update markdown
+#### e. Read milestone hints
 
-Using `features.json`, `changes.json`, and the reference documents:
+Before scoring or writing, check whether the milestone has a `hints/` directory:
+
+```bash
+ls "$content_dir/hints/" 2>/dev/null || true
+```
+
+If hint files exist, read every `.md` file in `hints/`. Hints are **hard constraints** — they override your default scoring and framing decisions. Treat `type: fact` hints as inviolable facts; treat `type: scoring` and `type: editorial` hints as mandatory scoring and wording rules.
+
+Apply each hint to every relevant `features.json` entry and to every markdown section you write or update in this run.
+
+#### f. Write or update markdown
+
+Using `features.json`, `changes.json`, the reference documents, and any milestone hints:
 
 - Route changes to output files via `product` field and component-mapping.md
 - For each component, identify which PRs are worth writing about. **If a component has no noteworthy features in this milestone, skip it entirely — do not create a branch, do not write an empty or stub `.md` file.**
