@@ -650,7 +650,7 @@ The structure is a JSON array of targets, typically a single entry:
     "support_phase": "preview",
     "branch_features": "release-notes/dotnet-11-preview-3-features",
     "content_dir": "release-notes/11.0/preview/preview3",
-    "vmr_base_tag": "release/11.0.1xx-preview2",
+    "vmr_base_tag": "v11.0.0-preview.2.26159.112",
     "vmr_head_ref": "main"
   }
 ]
@@ -660,7 +660,7 @@ Rules:
 
 - If `target.json` is `[]`, exit cleanly with a final message that there is nothing to do this run — do not invent a target.
 - For each entry, the **only** valid publish branch for that target is `branch_features`. Do not create or push to any other branch for that target.
-- `vmr_base_tag` and `vmr_head_ref` are the refs to feed `release-notes generate changes`. Despite the field name, `vmr_base_tag` is normally a **branch ref** (e.g. `release/11.0.1xx-preview4`) — the release branch of the previously shipped milestone, used as the inclusive lower bound. Verify it exists with `git -C /tmp/dotnet rev-parse --verify "$vmr_base_tag" >/dev/null` (this resolves either a tag or a branch). If it does not resolve, fail loudly and report which nearby refs do exist (`git -C /tmp/dotnet for-each-ref --format='%(refname:short)' 'refs/heads/release/*' 'refs/tags/v*' | grep -F "<major>"`). Do not silently substitute another ref.
+- `vmr_base_tag` and `vmr_head_ref` are the refs to feed `release-notes generate changes`. `vmr_base_tag` is the **build tag** of the previously shipped milestone (e.g. `v11.0.0-preview.4.26230.115`), used as the inclusive lower bound. The preload derives the tag rather than a `release/<major>.<band>xx-<token>` branch because the VMR deletes preview/rc release branches after each milestone ships, whereas tags persist. Verify it exists with `git -C /tmp/dotnet rev-parse --verify "$vmr_base_tag" >/dev/null` (this resolves either a tag or a branch). If it does not resolve, fail loudly and report which nearby refs do exist (`git -C /tmp/dotnet for-each-ref --format='%(refname:short)' 'refs/heads/release/*' 'refs/tags/v*' | grep -F "<major>"`). Do not silently substitute another ref.
 - Use `content_dir` for file paths inside this repository (this matches the existing per-milestone directory convention).
 - Strict serial invariant: exactly one milestone is active per major version at any time. The workflow already enforced this; if it produced multiple entries for the same major, that is a workflow bug — abort.
 
@@ -695,7 +695,7 @@ release-notes generate changes /tmp/dotnet \
   --output "$content_dir/changes.json"
 ```
 
-For example, with the target shown above: `--base release/11.0.1xx-preview2 --head main --version "11.0.0-preview.3" --output release-notes/11.0/preview/preview3/changes.json`.
+For example, with the target shown above: `--base v11.0.0-preview.2.26159.112 --head main --version "11.0.0-preview.3" --output release-notes/11.0/preview/preview3/changes.json`.
 
 #### a2. Regenerate build-metadata.json
 
@@ -1027,7 +1027,7 @@ Manifest examples (target features branch `release-notes/dotnet-11-preview-5-fea
 {
   "branch": "release-notes/dotnet-11-preview-5-features",
   "title": "[release-notes] .NET 11 Preview 5",
-  "body": "Draft release notes data for .NET 11 Preview 5.\n\n- changes.json generated from release/11.0.1xx-preview4 to main\n- features.json scored for 87 changes\n- Component branches opened: runtime, aspnetcore, sdk\n- Open question: benchmark data still needed for the JIT section (see runtime PR)",
+  "body": "Draft release notes data for .NET 11 Preview 5.\n\n- changes.json generated from v11.0.0-preview.4.26230.115 to main\n- features.json scored for 87 changes\n- Component branches opened: runtime, aspnetcore, sdk\n- Open question: benchmark data still needed for the JIT section (see runtime PR)",
   "comment": "Refreshed changes.json and features.json scores."
 }
 ```

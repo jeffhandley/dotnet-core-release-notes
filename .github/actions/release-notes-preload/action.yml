@@ -178,23 +178,18 @@ runs:
           fi
         }
 
-        # Extract milestone token (no hyphen) from a release version string.
-        # e.g. "11.0.0-preview.4" -> "preview4", "11.0.0-rc.1" -> "rc1".
-        last_shipped_milestone() {
-          local v="$1"
-          if [[ "$v" =~ -(preview|rc)\.([0-9]+)$ ]]; then
-            echo "${BASH_REMATCH[1]}${BASH_REMATCH[2]}"
-          else
-            echo ""
-          fi
-        }
-
-        # Extract the SDK feature band from a latest-sdk string.
-        # e.g. "11.0.100-preview.4.26230.115" -> "1", "10.0.200-rtm" -> "2".
-        sdk_band_from() {
-          local s="$1"
-          if [[ "$s" =~ ^[0-9]+\.[0-9]+\.([0-9])[0-9][0-9] ]]; then
-            echo "${BASH_REMATCH[1]}"
+        # Derive the durable VMR base ref: the previously shipped preview/rc
+        # build TAG. The public VMR deletes "release/<major>.<band>xx-<token>"
+        # preview branches after each milestone ships, but tags persist, so the
+        # tag is both stable and the exact inclusive lower bound. Tag form is
+        # "v<latest-release>.<build>", where <build> is the trailing build
+        # component of <latest-sdk> after the "-preview.N"/"-rc.N" label.
+        # e.g. release "11.0.0-preview.5" + sdk "11.0.100-preview.5.26302.115"
+        #      -> "v11.0.0-preview.5.26302.115".
+        base_tag_from() {
+          local release="$1" sdk="$2"
+          if [[ "$sdk" =~ -(preview|rc)\.[0-9]+\.(.+)$ ]]; then
+            echo "v${release}.${BASH_REMATCH[2]}"
           else
             echo ""
           fi
@@ -239,11 +234,10 @@ runs:
           major_flat="${channel%.*}"
           milestone_label=$(to_branch_label "$milestone")
           phase_dir=$(to_phase_dir "$milestone")
-          last_milestone_token=$(last_shipped_milestone "$latest_release")
-          sdk_band=$(sdk_band_from "$latest_sdk")
+          vmr_base_tag=$(base_tag_from "$latest_release" "$latest_sdk")
 
-          if [ -z "$last_milestone_token" ] || [ -z "$sdk_band" ]; then
-            echo "::error::Cannot derive VMR base ref for $channel (latest_release=$latest_release, latest_sdk=$latest_sdk)"
+          if [ -z "$vmr_base_tag" ]; then
+            echo "::error::Cannot derive VMR base tag for $channel (latest_release=$latest_release, latest_sdk=$latest_sdk)"
             exit 1
           fi
 
@@ -253,8 +247,7 @@ runs:
             --arg milestone "$milestone" \
             --arg milestone_label "$milestone_label" \
             --arg last_shipped "$latest_release" \
-            --arg last_milestone_token "$last_milestone_token" \
-            --arg sdk_band "$sdk_band" \
+            --arg vmr_base_tag "$vmr_base_tag" \
             --arg phase "$support_phase" \
             --arg phase_dir "$phase_dir" \
             '{
@@ -266,7 +259,7 @@ runs:
               support_phase: $phase,
               branch_features: "release-notes/dotnet-\($major_flat)-\($milestone_label)-features",
               content_dir: "release-notes/\($major)/\($phase_dir)/\($milestone)",
-              vmr_base_tag: "release/\($major).\($sdk_band)xx-\($last_milestone_token)",
+              vmr_base_tag: $vmr_base_tag,
               vmr_head_ref: "main"
             }')
           targets=$(jq --argjson t "$target" '. += [$t]' <<<"$targets")
