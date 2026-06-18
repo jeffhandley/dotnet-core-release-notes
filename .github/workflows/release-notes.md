@@ -936,7 +936,7 @@ verify each `#anchor` against the headings in the corresponding `<component-id>.
 Lint `blog.md` with the same `markdownlint-cli` gate as the README before
 committing it to the features branch.
 
-
+#### f. Ask for what you can't generate
 
 Some features need content that only humans can provide — benchmark data, definitive code samples, or domain-specific context. When you identify a feature that would benefit from this:
 
