@@ -367,7 +367,17 @@ jobs:
                   # rules. Amends the tip commit if anything changed.
                   normalize_markdown_files "$branch"
 
-                  # Hard gate: refuse to push markdown that fails markdownlint.
+                  # Hard placement guard: refuse to push a branch whose files
+                  # violate the features/component placement invariants
+                  # (see release-notes.README.md). Runs after the normalizer's
+                  # self-healing prune so only genuinely misplaced files fail.
+                  if ! validate_branch_placement "$branch"; then
+                    echo "::error::Placement violations on $branch — refusing to push. See log above."
+                    echo "- ❌ \`$branch\` — push blocked: placement violations" >> "$summary"
+                    lint_failed=1
+                    continue
+                  fi
+
                   # Lint the files this branch added or modified vs origin/main.
                   # markdownlint validates the whole file, not just the diff,
                   # so this catches structural problems anywhere in any file
@@ -432,6 +442,14 @@ jobs:
                 # Rebase succeeded; run the tier-1 markdown normalizer
                 # (TOC regen + MD040/MD051 fixes + markdownlint --fix).
                 normalize_markdown_files "$branch"
+
+                # Hard placement guard (see release-notes.README.md).
+                if ! validate_branch_placement "$branch"; then
+                  echo "::error::Placement violations on $branch — refusing to push. See log above."
+                  echo "- ❌ \`$branch\` — push blocked: placement violations" >> "$summary"
+                  lint_failed=1
+                  continue
+                fi
 
                 # Hard gate: refuse to push markdown that fails markdownlint.
                 # Lint the files this branch added or modified vs origin/main.
@@ -771,24 +789,50 @@ If provenance is ambiguous, preserve the existing text and ask on the PR before 
 
 #### e. Read milestone hints
 
-Milestone hints are branch-local editorial metadata. They belong only on the
-features branch (`$branch_features`) so a human can decide whether to merge them
-once for the milestone. They must never be copied to component branches.
+Hints are dot-prefixed (`.hints/`) branch-local editorial scaffolding — **not**
+customer-facing content. They live only on the features branch (`$branch_features`)
+so a human can decide whether to retain or delete them at merge. They must never be
+copied to component branches, and they are excluded from markdownlint/prettier.
 
-Before scoring or writing, check whether the **features branch** has a
-`$content_dir/hints/` directory:
+There are **two** hint locations, both read when processing this milestone:
+
+- **Per-phase** — `$(dirname "$content_dir")/.hints/` (e.g.
+  `release-notes/11.0/preview/.hints/`) — durable hints that apply across every
+  preview in the phase.
+- **Per-milestone** — `$content_dir/.hints/` (e.g.
+  `release-notes/11.0/preview/preview3/.hints/`) — hints scoped to this one
+  milestone.
+
+Each hint `.md` file starts with a header that controls scope and kind:
+
+```yaml
+---
+applies-to: <milestone-id|all>
+type: fact|scoring|editorial
+---
+```
+
+Check the features branch for both directories:
 
 ```bash
+phase_hints="$(dirname "$content_dir")/.hints"
+milestone_hints="$content_dir/.hints"
 if git show-ref --verify --quiet "refs/remotes/origin/$branch_features"; then
-  git ls-tree -r --name-only "origin/$branch_features" -- "$content_dir/hints/"
+  git ls-tree -r --name-only "origin/$branch_features" -- "$phase_hints/" "$milestone_hints/"
 fi
 ```
 
-If hint files exist on the features branch, read every `.md` file from
-`origin/$branch_features:$content_dir/hints/`. Hints are **hard constraints** —
-they override your default scoring and framing decisions. Treat `type: fact`
-hints as inviolable facts; treat `type: scoring` and `type: editorial` hints as
-mandatory scoring and wording rules.
+Read every `.md` file from `origin/$branch_features` in both directories. Apply a
+**per-phase hint** only when its `applies-to` is `all` or matches this milestone id
+(`milestone`); skip phase hints scoped to a different milestone. Per-milestone
+hints always apply.
+
+**Precedence:** when a per-milestone hint conflicts with a per-phase hint, the
+**milestone-level hint wins**.
+
+Hints are **hard constraints** — they override your default scoring and framing
+decisions. Treat `type: fact` hints as inviolable facts; treat `type: scoring` and
+`type: editorial` hints as mandatory scoring and wording rules.
 
 Apply each hint to every relevant `features.json` entry and to every markdown section you write or update in this run.
 
@@ -810,7 +854,7 @@ Using `features.json`, `changes.json`, the reference documents, and any mileston
   fi
   ```
 
-  Write or update *only* `$content_dir/<component-id>.md` inside that worktree. Do **not** copy `changes.json`, `features.json`, `$content_dir/hints/`, or any other component's `.md` into the worktree. If this is an existing component branch from an earlier run and it contains sibling component files such as `$content_dir/csharp.md` on the SDK branch, remove those stale files before committing; a component branch must not carry markdown for any component other than its own `<component-id>.md`. If an existing `sdk.md` contains C# language sections from a prior bad run, remove those sections from `sdk.md` and write them only to the `csharp` component branch.
+  Write or update *only* `$content_dir/<component-id>.md` inside that worktree. Do **not** copy `changes.json`, `features.json`, `$content_dir/.hints/`, or any other component's `.md` into the worktree. If this is an existing component branch from an earlier run and it contains sibling component files such as `$content_dir/csharp.md` on the SDK branch, remove those stale files before committing; a component branch must not carry markdown for any component other than its own `<component-id>.md`. If an existing `sdk.md` contains C# language sections from a prior bad run, remove those sections from `sdk.md` and write them only to the `csharp` component branch.
 
   **Do not hand-write the table of contents.** Leave a placeholder bracketed by HTML markers near the top of the file (after the title and intro sentence), then run `markdown-toc` to populate it from the `##` headings. This eliminates anchor typos and orphaned TOC entries when headings are renamed, clustered, or removed.
 
@@ -856,12 +900,43 @@ Separately, prepare the **features branch** worktree (`$branch_features`) contai
 - `$content_dir/features.json`
 - `$content_dir/build-metadata.json` (always present — regenerated in step (a2))
 - `$content_dir/README.md` — milestone landing page / index linking to each component file
-- `$content_dir/hints/` — optional editorial hints for this milestone; keep them only here, never on component branches
+- `$content_dir/blog.md` — aggregated highlights post (see *Generate the blog highlights post* below)
+- `$content_dir/.hints/` — optional editorial hints for this milestone; keep them only here, never on component branches. The per-phase `$(dirname "$content_dir")/.hints/` directory, when present, is also part of the milestone data and stays on the features branch.
 - Any other non-component metadata that belongs in the milestone directory (e.g. `release.json`) when applicable
 
 Do **not** include component `.md` files on the features branch.
 
-#### f. Ask for what you can't generate
+##### Generate the blog highlights post (`blog.md`)
+
+On the **features branch**, also write `$content_dir/blog.md` — an aggregated
+highlights post for the milestone, modeled on the established announcement format.
+This is the single cross-component story a human editor adapts for the dotnet.microsoft.com
+blog; it is **not** a replacement for the per-component notes.
+
+Structure:
+
+- A short intro paragraph naming the release (e.g. ".NET 11 Preview 5") and its theme.
+- A bulleted list of the component release-notes pages that have notes this
+  milestone, each linking to the component file on dotnet/core and, where a
+  highlight warrants it, a **deep link into the specific `##` heading anchor** for
+  the top one or two stories in that component — for example
+  `…/aspnetcore.md#<heading-slug>`.
+- A short **Get started** / download section and a **feedback** pointer.
+
+Pull the highlights from the **highest-scoring** `features.json` entries across
+components — lead with the few stories that matter most, not an exhaustive list.
+
+**Anchors are generated deterministically, never hand-typed.** The heading slugs
+must match the anchors `markdown-toc` produced in each component file. Resolve them
+from the component markdown you just wrote (the GitHub-style slug of each `##`
+heading: lowercased, spaces→`-`, punctuation removed) rather than guessing. A blog
+deep link whose anchor does not exist in the target component file is a defect —
+verify each `#anchor` against the headings in the corresponding `<component-id>.md`.
+
+Lint `blog.md` with the same `markdownlint-cli` gate as the README before
+committing it to the features branch.
+
+
 
 Some features need content that only humans can provide — benchmark data, definitive code samples, or domain-specific context. When you identify a feature that would benefit from this:
 
