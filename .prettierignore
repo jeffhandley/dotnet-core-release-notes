@@ -1,3 +1,6 @@
 # Ignore GitHub Workflow files and docs
 .github/workflows/*.yml
 .github/workflows/*.md
+
+# Ignore agent hint scaffolding (not customer-facing content)
+release-notes/**/.hints/

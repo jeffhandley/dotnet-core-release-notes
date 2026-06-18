@@ -19,10 +19,15 @@
 #                                     branch added/modified vs origin/main;
 #                                     writes violations to OUT; returns 0 if
 #                                     clean, 1 if any file failed
+#   validate_branch_placement BRANCH — hard placement guard: rejects a branch
+#                                     whose changed files violate the
+#                                     features/component branch invariants
+#                                     (see release-notes.README.md). Prints the
+#                                     reason and returns 1 on violation, else 0.
 
 setup_toc_tool() {
   mkdir -p /tmp/toctool
-  ( cd /tmp/toctool && npm init -y >/dev/null 2>&1 && npm install --silent github-slugger >/dev/null 2>&1 )
+  (cd /tmp/toctool && npm init -y >/dev/null 2>&1 && npm install --silent github-slugger >/dev/null 2>&1)
 
   # Body-level normalizer that fixes the two most common deterministic
   # lint failures agent-generated markdown produces:
@@ -36,7 +41,7 @@ setup_toc_tool() {
   #     resolved to an existing heading are left alone so markdownlint
   #     surfaces them rather than the normalizer silently making them
   #     look "correct".
-  cat > /tmp/toctool/normalize-md.js <<'NORM_JS_EOF'
+  cat >/tmp/toctool/normalize-md.js <<'NORM_JS_EOF'
 const fs = require('fs');
 const GithubSlugger = require('github-slugger').default || require('github-slugger');
 const path = process.argv[2];
@@ -108,7 +113,7 @@ if (next !== original) {
 }
 NORM_JS_EOF
 
-  cat > /tmp/toctool/regen-toc.js <<'TOC_JS_EOF'
+  cat >/tmp/toctool/regen-toc.js <<'TOC_JS_EOF'
 const fs = require('fs');
 const GithubSlugger = require('github-slugger').default || require('github-slugger');
 const path = process.argv[2];
@@ -154,16 +159,16 @@ regenerate_tocs() {
     [ -f "$md_path" ] || continue
     grep -q '<!-- toc -->' "$md_path" || continue
     grep -q '<!-- tocstop -->' "$md_path" || continue
-    ( cd /tmp/toctool && node regen-toc.js "$GITHUB_WORKSPACE/$md_path" ) || true
+    (cd /tmp/toctool && node regen-toc.js "$GITHUB_WORKSPACE/$md_path") || true
     if ! git diff --quiet -- "$md_path"; then
       touched=1
       git add "$md_path"
     fi
-  done <<< "$md_files"
+  done <<<"$md_files"
   if [ "$touched" -eq 1 ]; then
     git -c user.email="${GIT_AUTHOR_EMAIL:-actions@github.com}" \
-        -c user.name="${GIT_AUTHOR_NAME:-github-actions[bot]}" \
-        commit --amend --no-edit >/dev/null
+      -c user.name="${GIT_AUTHOR_NAME:-github-actions[bot]}" \
+      commit --amend --no-edit >/dev/null
     echo "  TOC regenerated for $branch"
   fi
 }
@@ -173,7 +178,7 @@ regenerate_tocs() {
 lint_branch() {
   local branch="$1"
   local out="$2"
-  : > "$out"
+  : >"$out"
   local md_files
   md_files=$(git diff --name-only "origin/main...$branch" -- '*.md' 2>/dev/null || true)
   [ -z "$md_files" ] && return 0
@@ -186,12 +191,13 @@ lint_branch() {
     local dest="$tmpdir/$md_path"
     mkdir -p "$(dirname "$dest")"
     cp "$md_path" "$dest"
-  done <<< "$md_files"
-  ( cd "$tmpdir" && npx --yes markdownlint-cli \
-      --config "$GITHUB_WORKSPACE/.github/linters/.markdown-lint.yml" \
-      $(echo "$md_files" | tr '\n' ' ') 2> "$out.raw" || true )
+  done <<<"$md_files"
+  # shellcheck disable=SC2046,SC2015  # word-split file list into args on purpose; `|| true` guards npx exit
+  (cd "$tmpdir" && npx --yes markdownlint-cli \
+    --config "$GITHUB_WORKSPACE/.github/linters/.markdown-lint.yml" \
+    $(echo "$md_files" | tr '\n' ' ') 2>"$out.raw" || true)
   if [ -s "$out.raw" ]; then
-    sed "s|$tmpdir/||g" "$out.raw" > "$out"
+    sed "s|$tmpdir/||g" "$out.raw" >"$out"
     any_failed=1
   fi
   rm -rf "$tmpdir" "$out.raw" 2>/dev/null || true
@@ -226,12 +232,12 @@ normalize_markdown_files() {
     changed_release_paths=$(git diff --name-only "origin/main...$branch" -- 'release-notes' 2>/dev/null || true)
     while IFS= read -r release_path; do
       [ -z "$release_path" ] && continue
-      if [[ "$release_path" == */hints/* ]] && [ -f "$release_path" ]; then
+      if [[ "$release_path" == */hints/* || "$release_path" == */.hints/* ]] && [ -f "$release_path" ]; then
         git rm -f "$release_path" >/dev/null
         touched=1
         echo "  Removed feature-branch-only hint from $branch: $release_path"
       fi
-    done <<< "$changed_release_paths"
+    done <<<"$changed_release_paths"
 
     local changed_release_md
     changed_release_md=$(git diff --name-only "origin/main...$branch" -- 'release-notes' 2>/dev/null | grep '\.md$' || true)
@@ -247,15 +253,15 @@ normalize_markdown_files() {
         touched=1
         echo "  Removed stale component file from $branch: $md_path"
       fi
-    done <<< "$changed_release_md"
+    done <<<"$changed_release_md"
   fi
 
   md_files=$(git diff --name-only "origin/main...$branch" -- '*.md' 2>/dev/null || true)
   if [ -z "$md_files" ]; then
     if [ "$touched" -eq 1 ]; then
       git -c user.email="${GIT_AUTHOR_EMAIL:-actions@github.com}" \
-          -c user.name="${GIT_AUTHOR_NAME:-github-actions[bot]}" \
-          commit --amend --no-edit >/dev/null
+        -c user.name="${GIT_AUTHOR_NAME:-github-actions[bot]}" \
+        commit --amend --no-edit >/dev/null
       echo "  Markdown normalized for $branch"
     fi
     return 0
@@ -269,8 +275,8 @@ normalize_markdown_files() {
   if [ -z "$md_files" ]; then
     if [ "$touched" -eq 1 ]; then
       git -c user.email="${GIT_AUTHOR_EMAIL:-actions@github.com}" \
-          -c user.name="${GIT_AUTHOR_NAME:-github-actions[bot]}" \
-          commit --amend --no-edit >/dev/null
+        -c user.name="${GIT_AUTHOR_NAME:-github-actions[bot]}" \
+        commit --amend --no-edit >/dev/null
       echo "  Markdown normalized for $branch"
     fi
     return 0
@@ -280,12 +286,12 @@ normalize_markdown_files() {
   while IFS= read -r md_path; do
     [ -z "$md_path" ] && continue
     [ -f "$md_path" ] || continue
-    ( cd /tmp/toctool && node normalize-md.js "$GITHUB_WORKSPACE/$md_path" ) || true
+    (cd /tmp/toctool && node normalize-md.js "$GITHUB_WORKSPACE/$md_path") || true
     if ! git diff --quiet -- "$md_path"; then
       touched=1
       git add "$md_path"
     fi
-  done <<< "$md_files"
+  done <<<"$md_files"
 
   # Step 4: markdownlint --fix for the rules it can auto-correct.
   while IFS= read -r md_path; do
@@ -298,12 +304,88 @@ normalize_markdown_files() {
       touched=1
       git add "$md_path"
     fi
-  done <<< "$md_files"
+  done <<<"$md_files"
 
   if [ "$touched" -eq 1 ]; then
     git -c user.email="${GIT_AUTHOR_EMAIL:-actions@github.com}" \
-        -c user.name="${GIT_AUTHOR_NAME:-github-actions[bot]}" \
-        commit --amend --no-edit >/dev/null
+      -c user.name="${GIT_AUTHOR_NAME:-github-actions[bot]}" \
+      commit --amend --no-edit >/dev/null
     echo "  Markdown normalized for $branch"
   fi
+}
+
+# Hard placement guard. Verifies that the files a branch added/modified vs
+# origin/main obey the features/component branch invariants documented in
+# .github/workflows/release-notes.README.md:
+#
+#   1. A component branch (<features>-<id>) may only add/modify its own
+#      <id>.md (and an optional README.md) under release-notes/. Stray sibling
+#      component files, hints, and metadata (changes.json, features.json, …)
+#      are rejected.
+#   2. The features branch (<…>-features) must not add/modify any component
+#      <id>.md file (component markdown belongs on component branches).
+#   3. Component markdown filenames must be a known components.json id.
+#
+# normalize_markdown_files auto-prunes the common self-healing cases first;
+# this guard is the final check that refuses to push anything still misplaced.
+# Prints a human-readable reason for each violation and returns 1 if the
+# branch must be rejected, 0 otherwise. Working tree must be on $branch.
+validate_branch_placement() {
+  local branch="$1"
+  local components_json="${COMPONENTS_JSON:-$GITHUB_WORKSPACE/release-notes/components.json}"
+  local ids id_set changed path base stem violations=0
+
+  # Known component ids (space-padded for whole-word matching).
+  if [ -f "$components_json" ]; then
+    ids=$(jq -r '.components[].id' "$components_json" 2>/dev/null | tr '\n' ' ')
+  else
+    ids=""
+  fi
+  id_set=" $ids "
+
+  changed=$(git diff --name-only "origin/main...$branch" -- 'release-notes' 2>/dev/null || true)
+  [ -z "$changed" ] && return 0
+
+  if [[ "$branch" == *-features-* ]]; then
+    # Component branch: only <id>.md (+ optional README.md) allowed.
+    local component_id="${branch##*-features-}"
+    if [[ "$id_set" != *" $component_id "* ]]; then
+      echo "::error::Placement guard: '$branch' has unknown component id '$component_id' (not in components.json)"
+      return 1
+    fi
+    while IFS= read -r path; do
+      [ -z "$path" ] && continue
+      base=$(basename "$path")
+      if [[ "$path" == */hints/* || "$path" == */.hints/* ]]; then
+        echo "::error::Placement guard: hints must not live on component branch '$branch': $path"
+        violations=$((violations + 1))
+        continue
+      fi
+      if [ "$base" = "README.md" ] || [ "$base" = "$component_id.md" ]; then
+        continue
+      fi
+      echo "::error::Placement guard: '$branch' may only carry $component_id.md, found: $path"
+      violations=$((violations + 1))
+    done <<<"$changed"
+  elif [[ "$branch" == *-features ]]; then
+    # Features branch: no component <id>.md files.
+    while IFS= read -r path; do
+      [ -z "$path" ] && continue
+      [[ "$path" == *.md ]] || continue
+      [[ "$path" == */hints/* || "$path" == */.hints/* ]] && continue
+      base=$(basename "$path")
+      [ "$base" = "README.md" ] && continue
+      stem="${base%.md}"
+      if [[ "$id_set" == *" $stem "* ]]; then
+        echo "::error::Placement guard: component markdown '$base' must live on the '$branch-$stem' branch, not the features branch: $path"
+        violations=$((violations + 1))
+      fi
+    done <<<"$changed"
+  fi
+
+  if [ "$violations" -gt 0 ]; then
+    echo "::error::Placement guard: $branch has $violations placement violation(s)"
+    return 1
+  fi
+  return 0
 }
