@@ -60,7 +60,8 @@ for (const line of lines) {
   if (inCode) continue;
   const m = /^#{1,6}\s+(.+)$/.exec(line);
   if (!m) continue;
-  const heading = m[1].trim();
+  // Strip closed-ATX trailing hashes (MD003) so slugs match the open-ATX form.
+  const heading = m[1].trim().replace(/\s+#+$/, '').trim();
   const plain = heading.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/`/g, '');
   const slug = slugger.slug(plain);
   headingSlugs.add(slug);
@@ -89,6 +90,9 @@ for (let line of lines) {
     continue;
   }
   if (inCode) { out.push(line); continue; }
+
+  // MD003: normalize closed-ATX headings (### x ###) to plain ATX (### x).
+  line = line.replace(/^(\s{0,3}#{1,6}\s+\S.*?)\s+#+\s*$/, '$1');
 
   // Rewrite [label](#anchor) where the anchor doesn't resolve.
   line = line.replace(/(\[([^\]]+)\])\(#([^)]+)\)/g, (full, label, text, anchor) => {
@@ -208,7 +212,8 @@ lint_branch() {
 # added/modified vs origin/main, runs:
 #   1. component-branch pruning (removes sibling component .md files)
 #   2. regenerate_tocs (handles <!-- toc --> blocks the agent typed by hand)
-#   3. /tmp/toctool/normalize-md.js (fixes MD040 bare fences and MD051
+#   3. /tmp/toctool/normalize-md.js (fixes MD003 closed-ATX headings,
+#      MD040 bare fences and MD051
 #      bad anchor links anywhere in the file body)
 #   4. markdownlint-cli --fix (auto-fixable rules: MD009 trailing-spaces,
 #      MD010 tabs, MD012 blank-line groups, MD018-021 ATX spacing,
@@ -282,7 +287,7 @@ normalize_markdown_files() {
     return 0
   fi
 
-  # Step 3: body-level normalizer (MD040 + MD051).
+  # Step 3: body-level normalizer (MD003 + MD040 + MD051).
   while IFS= read -r md_path; do
     [ -z "$md_path" ] && continue
     [ -f "$md_path" ] || continue

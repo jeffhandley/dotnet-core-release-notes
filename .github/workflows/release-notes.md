@@ -19,11 +19,16 @@ safe-outputs:
     title-prefix: "[release-notes] "
     labels: [area-release-notes, automation]
     draft: true
-    max: 5
+    # One umbrella features branch plus one branch per component that has
+    # noteworthy features (components.json lists 11). 10 is the gh-aw schema
+    # ceiling and covers the realistic per-target branch count with headroom.
+    max: 10
   push-to-pull-request-branch:
     title-prefix: "[release-notes] "
     labels: [area-release-notes, automation]
-    max: 5
+    # Matches create-pull-request: later runs push updates to the same
+    # umbrella + per-component branch family.
+    max: 10
   add-comment:
     max: 20
     target: "*"
@@ -502,7 +507,7 @@ imports:
 
 engine:
   id: copilot
-  version: "1.0.43"
+  version: "1.0.60"
   env:
     # We cannot use line breaks in this expression as it leads to a syntax error in the compiled workflow
     # If none of the `COPILOT_PAT_#` secrets were selected, then the default COPILOT_GITHUB_TOKEN is used
