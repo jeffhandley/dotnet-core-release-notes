@@ -118,12 +118,42 @@ release-notes generate changes ~/git/dotnet \
   --output release-notes/10.0/10.0.8/changes.json
 ```
 
+### 5. Validate that every `url` is the PR, not an issue
+
+`changes.json` identity is the **commit** (`id` / `local_repo_commit`); the
+`url` is *derived* from it and must point at the pull request that **introduced**
+that commit. A PR and the issue it closes (`Fixes #N` / `closingIssuesReferences`)
+are different numbers — the generator can occasionally emit the closed-issue URL
+instead of the PR. Catch and repair that before handing off.
+
+The authoritative resolution is "what PR contains this commit":
+
+```bash
+# For each change, the PR that introduced local_repo_commit:
+gh api "repos/<org>/<repo>/commits/<full-sha>/pulls" \
+  --jq '.[] | select(.merged_at != null) | .html_url'
+```
+
+An entry's `url` is wrong if **either** is true:
+
+- it is an `/issues/<n>` URL rather than `/pull/<n>`, or
+- the `/pull/<n>` it names does not exist as a PR, or its merge commit does not
+  equal the entry's `local_repo_commit`.
+
+When wrong, replace `url` with the `html_url` returned above. Audit at least
+every entry you will score or write about; a full-file audit is cheaper than
+shipping a wrong PR link. Re-run after fixing the generator if the same swap
+recurs — the durable fix is for `release-notes generate changes` to resolve the
+PR from the commit and never fall back to a linked issue.
+
 ## Output contract
 
 The output file must follow the shared schema documented in [changes-schema.md](../release-notes/references/changes-schema.md):
 
 - top-level `release_version`, `release_date`, `changes`, `commits`
 - stable `id` values in `repo@shortcommit` format
+- every `url` is the PR that **introduced** the entry's commit — a `/pull/` URL,
+  never an `/issues/` URL or a closed-issue number (see step 5)
 - same authoritative source of truth used by later skills
 
 Once `changes.json` exists, the next step is usually `generate-features`.

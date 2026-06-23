@@ -702,6 +702,26 @@ release-notes generate changes /tmp/dotnet \
 
 For example, with the target shown above: `--base v11.0.0-preview.2.26159.112 --head main --version "11.0.0-preview.3" --output release-notes/11.0/preview/preview3/changes.json`.
 
+**Then validate that every `url` is a PR, not an issue.** The change identity is
+the commit (`id` / `local_repo_commit`, in `repo@shortcommit` form); `url` is
+*derived* from it and must point at the pull request that **introduced** that
+commit. A PR and the issue it closes (`Fixes #N` / `closingIssuesReferences`) are
+different numbers, and the generator can occasionally emit the closed-issue URL
+instead of the PR. For each entry that you will score or write about, confirm
+`url` resolves to the PR that contains its commit, and repair any that don't:
+
+```bash
+# Authoritative: the merged PR that introduced a recorded commit.
+# <full-sha> is commits[<local_repo_commit>].hash for the entry.
+gh api "repos/<org>/<repo>/commits/<full-sha>/pulls" \
+  --jq '.[] | select(.merged_at != null) | .html_url'
+```
+
+An entry's `url` is wrong if it is an `/issues/<n>` link, or the `/pull/<n>` it
+names doesn't exist as a PR, or that PR's merge commit doesn't equal the entry's
+`local_repo_commit`. Replace it with the `html_url` above. See
+[changes-schema.md](../skills/release-notes/references/changes-schema.md) ("Commit → PR invariant").
+
 #### a2. Regenerate build-metadata.json
 
 Always regenerate alongside `changes.json` so package versions stay in sync with the milestone:
