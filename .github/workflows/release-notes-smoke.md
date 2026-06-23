@@ -19,7 +19,6 @@ tools:
     - dotnet
     - gh
     - release-notes
-    - release-notes-gen
     - git
     - jq
     - mkdir
@@ -50,20 +49,20 @@ on:
           - changes
 
 steps:
-  - name: Download release-notes-gen tool
+  - name: Download release-notes tool
     uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
     with:
       name: release-notes-gen-tool
       path: /tmp/release-notes-gen-tool
 
-  - name: Prepare release-notes-gen
+  - name: Prepare release-notes
     run: |
-      chmod +x /tmp/release-notes-gen-tool/release-notes-gen
+      chmod +x /tmp/release-notes-gen-tool/release-notes
       echo /tmp/release-notes-gen-tool >> "$GITHUB_PATH"
 
-  - name: Verify release-notes-gen is available
+  - name: Verify release-notes is available
     run: |
-      command -v release-notes-gen >/dev/null
+      command -v release-notes >/dev/null
 
   - name: Clone dotnet VMR
     run: |
@@ -96,7 +95,7 @@ jobs:
         with:
           dotnet-version: '11.0'
 
-      - name: Install release-notes-gen tool
+      - name: Install release-notes tool
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -105,10 +104,10 @@ jobs:
             --username github-actions \
             --password "$GITHUB_TOKEN" \
             --store-password-in-clear-text
-          dotnet tool install ReleaseNotes.Gen \
+          dotnet tool install release-notes \
             --tool-path "$RUNNER_TEMP/release-notes-gen-tool"
 
-      - name: Upload release-notes-gen tool
+      - name: Upload release-notes tool
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: release-notes-gen-tool
@@ -149,7 +148,7 @@ phase and then stop. The selected phase for this run is: `${{ inputs.phase }}`.
 
 ## Tool setup
 
-The workflow downloads `release-notes-gen`, places it on `PATH`, clones the VMR to
+The workflow downloads `release-notes`, places it on `PATH`, clones the VMR to
 `/tmp/dotnet`, and writes the latest three `Write Release Notes` workflow runs to
 `/tmp/gh-aw/agent/write-release-notes-runs.json` before the agent starts. Use those
 preloaded resources directly. Do **not** download them again, do **not** clone the
@@ -158,7 +157,7 @@ VMR yourself, and do **not** improvise another setup path.
 ## Phases
 
 1. `boot` — read-only sanity check. Report the repository name, current branch, and HEAD SHA.
-2. `tool` — prove `command -v release-notes-gen` resolves the tool on `PATH`. Do not invoke the binary by absolute path.
+2. `tool` — prove `command -v release-notes` resolves the tool on `PATH`. Do not invoke the binary by absolute path.
 3. `github-read` — read `/tmp/gh-aw/agent/write-release-notes-runs.json` and summarize the latest three `Write Release Notes` workflow runs. Do not use shell `gh`, `curl`, web content, or Python.
 4. `file-write` — create `/tmp/release-notes-smoke/`, copy `README.md` to `/tmp/release-notes-smoke/README.md`, and list the directory contents.
 5. `changes` — show the first few lines of `main:eng/Versions.props` from the pre-cloned `/tmp/dotnet`. Do not generate release notes or write repo files.

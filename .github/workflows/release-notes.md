@@ -38,7 +38,6 @@ tools:
     - dotnet
     - gh
     - release-notes
-    - release-notes-gen
     - git
     - jq
     - mkdir
@@ -223,7 +222,7 @@ jobs:
         with:
           dotnet-version: '11.0'
 
-      - name: Install release-notes-gen tool
+      - name: Install release-notes tool
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -232,10 +231,10 @@ jobs:
             --username github-actions \
             --password "$GITHUB_TOKEN" \
             --store-password-in-clear-text
-          dotnet tool install ReleaseNotes.Gen \
+          dotnet tool install release-notes \
             --tool-path "$RUNNER_TEMP/release-notes-gen-tool"
 
-      - name: Upload release-notes-gen tool
+      - name: Upload release-notes tool
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: release-notes-gen-tool
@@ -512,7 +511,7 @@ engine:
     # We cannot use line breaks in this expression as it leads to a syntax error in the compiled workflow
     # If none of the `COPILOT_PAT_#` secrets were selected, then the default COPILOT_GITHUB_TOKEN is used
     COPILOT_GITHUB_TOKEN: ${{ case(needs.pat_pool.outputs.pat_number == '0', secrets.COPILOT_PAT_0, needs.pat_pool.outputs.pat_number == '1', secrets.COPILOT_PAT_1, needs.pat_pool.outputs.pat_number == '2', secrets.COPILOT_PAT_2, needs.pat_pool.outputs.pat_number == '3', secrets.COPILOT_PAT_3, needs.pat_pool.outputs.pat_number == '4', secrets.COPILOT_PAT_4, needs.pat_pool.outputs.pat_number == '5', secrets.COPILOT_PAT_5, needs.pat_pool.outputs.pat_number == '6', secrets.COPILOT_PAT_6, needs.pat_pool.outputs.pat_number == '7', secrets.COPILOT_PAT_7, needs.pat_pool.outputs.pat_number == '8', secrets.COPILOT_PAT_8, needs.pat_pool.outputs.pat_number == '9', secrets.COPILOT_PAT_9, secrets.COPILOT_GITHUB_TOKEN) }}
-    # GITHUB_TOKEN is the workflow's run-scoped token (read-only per the `permissions:` block above). `release-notes-gen generate changes` requires it to query PR metadata against dotnet/dotnet.
+    # GITHUB_TOKEN is the workflow's run-scoped token (read-only per the `permissions:` block above). `release-notes generate changes` requires it to query PR metadata against dotnet/dotnet.
     GITHUB_TOKEN: ${{ github.token }}
 ---
 
@@ -597,7 +596,7 @@ Do **not** fetch repository file contents or compare views from `raw.githubuserc
 
 ### Preloaded context in this workflow
 
-The workflow downloads `release-notes-gen`, places it on `PATH`, and clones the
+The workflow downloads `release-notes`, places it on `PATH`, and clones the
 dotnet VMR to `/tmp/dotnet` before agentic execution starts. It also computes
 the active milestone target deterministically and preloads release-notes
 repository context into local files:
@@ -612,7 +611,7 @@ repository context into local files:
 - `/tmp/gh-aw/agent/pr-comments/<pr>-reviews.json`
 - `/tmp/gh-aw/agent/publish/` — write publish manifests here; the workflow converts them into safe outputs after you finish
 
-- use `release-notes-gen` directly when you need it
+- use `release-notes` directly when you need it
 - use the pre-cloned VMR at `/tmp/dotnet`
 - read `/tmp/gh-aw/agent/context-index.json` first so you know where the preloaded
   release-notes PR, branch, and comment data lives
@@ -621,14 +620,14 @@ repository context into local files:
 - use shell `gh` only for targeted cross-repo follow-up that the workflow could not
   preload, such as revert searches in component repos
 - do **not** probe `PATH` with `command -v` or `which` from inside the agent
-- do **not** run `gh run download` or `dotnet tool install` for `ReleaseNotes.Gen`
+- do **not** run `gh run download` or `dotnet tool install` for `release-notes`
 - do **not** run `git clone https://github.com/dotnet/dotnet /tmp/dotnet` yourself
 - do **not** background clone work or use `jobs`, `wait`, `sleep`, or polling loops to watch clone progress
 - do **not** call GitHub MCP tools or safe-output tools directly in this workflow;
   your job is to prepare local edits and publish manifests, not to fetch or publish
   through MCP
 
-If `release-notes-gen`, `/tmp/dotnet`, or the preloaded context files are absent or
+If `release-notes`, `/tmp/dotnet`, or the preloaded context files are absent or
 unusable, stop before making repo changes and explain the missing prerequisite in
 your final response.
 

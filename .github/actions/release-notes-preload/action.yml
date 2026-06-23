@@ -1,6 +1,6 @@
 name: Preload release-notes context
 description: >-
-  Downloads the release-notes-gen tool, clones the dotnet VMR, preloads open
+  Downloads the release-notes tool, clones the dotnet VMR, preloads open
   release-notes PRs and their comments, snapshots existing release-notes/*
   branches, and computes the active target milestone(s) into target.json.
   Writes everything under /tmp/gh-aw/agent/ for the agent to consume.
@@ -35,27 +35,27 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Download release-notes-gen tool
+    - name: Download release-notes tool
       uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
         name: ${{ inputs.release-notes-gen-artifact }}
         path: ${{ inputs.release-notes-gen-path }}
 
-    - name: Prepare release-notes-gen
+    - name: Prepare release-notes
       shell: bash
       env:
         BIN_DIR: ${{ inputs.release-notes-gen-path }}
       run: |
-        chmod +x "$BIN_DIR/release-notes-gen"
+        chmod +x "$BIN_DIR/release-notes"
         echo "$BIN_DIR" >> "$GITHUB_PATH"
 
-    - name: Verify release-notes-gen is available
+    - name: Verify release-notes is available
       shell: bash
       env:
         BIN_DIR: ${{ inputs.release-notes-gen-path }}
       run: |
         # GITHUB_PATH only takes effect in subsequent steps; check the file directly.
-        test -x "$BIN_DIR/release-notes-gen"
+        test -x "$BIN_DIR/release-notes"
 
     - name: Clone dotnet VMR
       shell: bash
