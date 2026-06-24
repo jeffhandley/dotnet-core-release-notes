@@ -195,6 +195,18 @@ runs:
           fi
         }
 
+        # Helper: the release version string fed to `release-notes generate
+        # changes --version`. "11.0" + "preview3" -> "11.0.0-preview.3";
+        # "11.0" + "rc1" -> "11.0.0-rc.1"; "11.0" + "ga" -> "11.0.0".
+        release_version_from() {
+          local major="$1" m="$2"
+          if [[ "$m" =~ ^(preview|rc)([0-9]+)$ ]]; then
+            echo "${major}.0-${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
+          else
+            echo "${major}.0"
+          fi
+        }
+
         targets="[]"
         while IFS=$'\t' read -r channel latest_release latest_sdk support_phase; do
           [ -n "$channel" ] || continue
@@ -241,6 +253,9 @@ runs:
             exit 1
           fi
 
+          release_version=$(release_version_from "$channel" "$milestone")
+          gen_dir="$AGENT_DIR/generated/${major_flat}-${milestone_label}"
+
           target=$(jq -n \
             --arg major "$channel" \
             --arg major_flat "$major_flat" \
@@ -250,6 +265,9 @@ runs:
             --arg vmr_base_tag "$vmr_base_tag" \
             --arg phase "$support_phase" \
             --arg phase_dir "$phase_dir" \
+            --arg release_version "$release_version" \
+            --arg generated_changes "$gen_dir/changes.json" \
+            --arg generated_build_metadata "$gen_dir/build-metadata.json" \
             '{
               major: $major,
               major_flat: $major_flat,
@@ -260,7 +278,10 @@ runs:
               branch_features: "release-notes/dotnet-\($major_flat)-\($milestone_label)-features",
               content_dir: "release-notes/\($major)/\($phase_dir)/\($milestone)",
               vmr_base_tag: $vmr_base_tag,
-              vmr_head_ref: "main"
+              vmr_head_ref: "main",
+              release_version: $release_version,
+              generated_changes: $generated_changes,
+              generated_build_metadata: $generated_build_metadata
             }')
           targets=$(jq --argjson t "$target" '. += [$t]' <<<"$targets")
         done < <(jq -r '."releases-index"[] | select(."support-phase" == "preview" or ."support-phase" == "go-live") | [."channel-version", ."latest-release", ."latest-sdk", ."support-phase"] | @tsv' "$INDEX_PATH")
@@ -287,3 +308,62 @@ runs:
 
         echo "Computed targets:"
         cat "$AGENT_DIR/target.json"
+
+    - name: Generate changes.json and build-metadata.json
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        AGENT_DIR: ${{ inputs.agent-context-dir }}
+        VMR_PATH: ${{ inputs.vmr-clone-path }}
+        BIN_DIR: ${{ inputs.release-notes-gen-path }}
+      run: |
+        set -euo pipefail
+
+        # Run all deterministic generation here, on the host, where the
+        # release-notes binary is on PATH and executable. The agent runs inside
+        # a sandbox that cannot reach or execute this tool, so it consumes the
+        # pre-generated changes.json / build-metadata.json instead of producing
+        # them itself.
+        export PATH="$BIN_DIR:$PATH"
+
+        if [ ! -s "$AGENT_DIR/target.json" ] || [ "$(jq 'length' "$AGENT_DIR/target.json")" -eq 0 ]; then
+          echo "No active targets — skipping deterministic generation."
+          exit 0
+        fi
+
+        while IFS= read -r target; do
+          major=$(jq -r '.major' <<<"$target")
+          base=$(jq -r '.vmr_base_tag' <<<"$target")
+          head=$(jq -r '.vmr_head_ref' <<<"$target")
+          version=$(jq -r '.release_version' <<<"$target")
+          gen_changes=$(jq -r '.generated_changes' <<<"$target")
+          gen_build_metadata=$(jq -r '.generated_build_metadata' <<<"$target")
+
+          # Fail loudly if the base ref is missing — never silently substitute.
+          if ! git -C "$VMR_PATH" rev-parse --verify "$base" >/dev/null 2>&1; then
+            echo "::error::VMR base ref '$base' for $major does not resolve in $VMR_PATH"
+            git -C "$VMR_PATH" for-each-ref --format='%(refname:short)' 'refs/heads/release/*' 'refs/tags/v*' | grep -F "${major%.*}" || true
+            exit 1
+          fi
+
+          mkdir -p "$(dirname "$gen_changes")"
+
+          echo "::group::generate changes ($major $version): base=$base head=$head"
+          release-notes generate changes "$VMR_PATH" \
+            --base "$base" \
+            --head "$head" \
+            --version "$version" \
+            --labels \
+            --output "$gen_changes"
+          echo "::endgroup::"
+
+          echo "::group::generate build-metadata ($major): base=$base head=$head"
+          release-notes generate build-metadata "$VMR_PATH" \
+            --base "$base" \
+            --head "$head" \
+            --output "$gen_build_metadata"
+          echo "::endgroup::"
+        done < <(jq -c '.[]' "$AGENT_DIR/target.json")
+
+        echo "Deterministic generation complete:"
+        find "$AGENT_DIR/generated" -type f | sort
