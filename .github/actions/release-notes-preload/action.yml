@@ -358,10 +358,15 @@ runs:
           echo "::endgroup::"
 
           echo "::group::generate build-metadata ($major): base=$base head=$head"
-          release-notes generate build-metadata "$VMR_PATH" \
+          if release-notes generate build-metadata "$VMR_PATH" \
             --base "$base" \
             --head "$head" \
-            --output "$gen_build_metadata"
+            --output "$gen_build_metadata"; then
+            echo "build-metadata generated."
+          else
+            echo "::warning::build-metadata generation failed for $major (head=$head) — most likely the head build's packages are not published on the feed yet. Leaving build-metadata.json for the agent to preserve from the features branch."
+            rm -f "$gen_build_metadata"
+          fi
           echo "::endgroup::"
         done < <(jq -c '.[]' "$AGENT_DIR/target.json")
 

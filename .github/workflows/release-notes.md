@@ -720,13 +720,20 @@ See [changes-schema.md](../skills/release-notes/references/changes-schema.md) ("
 
 #### a2. Stage build-metadata.json (already generated for you)
 
-`build-metadata.json` was generated alongside `changes.json` during preload and
-is waiting at the absolute path `target.generated_build_metadata`. Copy it onto
-the features branch next to `changes.json`:
+`build-metadata.json` is generated alongside `changes.json` during preload and
+is normally waiting at the absolute path `target.generated_build_metadata`. Copy
+it onto the features branch next to `changes.json` **when it exists**:
 
 ```bash
-cp "$generated_build_metadata" "$content_dir/build-metadata.json"
+if [ -f "$generated_build_metadata" ]; then
+  cp "$generated_build_metadata" "$content_dir/build-metadata.json"
+fi
 ```
+
+If `target.generated_build_metadata` does **not** exist, the preload could not
+regenerate it this run (e.g., the head build's packages are not yet published on
+the feed). In that case keep the existing `build-metadata.json` already on the
+features branch — do not delete it and do not fabricate one.
 
 `build-metadata.json` belongs on the **features branch** alongside `changes.json` and `features.json`. The `nuget.source` and `nuget.packages` values are also what downstream API verification steps consume when checking shipped types — keep this file current.
 
