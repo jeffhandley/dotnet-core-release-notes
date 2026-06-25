@@ -655,7 +655,7 @@ The structure is a JSON array of targets, typically a single entry:
     "branch_features": "release-notes/dotnet-11-preview-3-features",
     "content_dir": "release-notes/11.0/preview/preview3",
     "vmr_base_tag": "v11.0.0-preview.2.26159.112",
-    "vmr_head_ref": "main",
+    "vmr_head_ref": "release/11.0.1xx-preview3",
     "release_version": "11.0.0-preview.3",
     "generated_changes": "/tmp/gh-aw/agent/generated/11-preview-3/changes.json",
     "generated_build_metadata": "/tmp/gh-aw/agent/generated/11-preview-3/build-metadata.json"
@@ -667,7 +667,7 @@ Rules:
 
 - If `target.json` is `[]`, exit cleanly with a final message that there is nothing to do this run — do not invent a target.
 - For each entry, the **only** valid publish branch for that target is `branch_features`. Do not create or push to any other branch for that target.
-- `vmr_base_tag` and `vmr_head_ref` are the refs that the preload step fed to `release-notes generate changes` and `release-notes generate build-metadata` when it produced `generated_changes` and `generated_build_metadata` for you. `vmr_base_tag` is the **build tag** of the previously shipped milestone (e.g. `v11.0.0-preview.4.26230.115`), used as the inclusive lower bound. The preload derives the tag rather than a `release/<major>.<band>xx-<token>` branch because the VMR deletes preview/rc release branches after each milestone ships, whereas tags persist. The preload already verified the tag resolves and failed loudly if it did not, so you do not need to re-run generation — but the refs are recorded here for provenance.
+- `vmr_base_tag` and `vmr_head_ref` are the refs that the preload step fed to `release-notes generate changes` and `release-notes generate build-metadata` when it produced `generated_changes` and `generated_build_metadata` for you. `vmr_base_tag` is the **build tag** of the previously shipped milestone (e.g. `v11.0.0-preview.4.26230.115`), used as the inclusive lower bound. The preload derives the tag rather than a `release/<major>.<band>xx-<token>` branch because the VMR deletes preview/rc release branches after each milestone ships, whereas tags persist. `vmr_head_ref` is the inclusive upper bound: the preload prefers the milestone's `release/<major>.<band>xx-<milestone>` branch when it exists (so a milestone that has branched is bounded to its own commits) and falls back to `main` (the leading edge) only while the milestone has not been branched yet — in that window `main` may carry the next milestone's branding/content. The preload already verified the base tag resolves and failed loudly if it did not, so you do not need to re-run generation — but the refs are recorded here for provenance.
 - `generated_changes` and `generated_build_metadata` are absolute paths under `/tmp/gh-aw/agent/generated/` where the preload step has **already written** the deterministic `changes.json` and `build-metadata.json` for this target. You copy these into `content_dir`; you do **not** run the generator yourself (the agent sandbox cannot execute the `release-notes` tool).
 - Use `content_dir` for file paths inside this repository (this matches the existing per-milestone directory convention).
 - Strict serial invariant: exactly one milestone is active per major version at any time. The workflow already enforced this; if it produced multiple entries for the same major, that is a workflow bug — abort.

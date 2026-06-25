@@ -207,6 +207,26 @@ runs:
           fi
         }
 
+        # Helper: the in-flight VMR head branch for the target milestone, e.g.
+        # channel "11.0" + sdk "11.0.100-preview.5..." + milestone "preview6"
+        #   -> "release/11.0.1xx-preview6".
+        # head=main is the leading edge and the correct default while a milestone
+        # is still being assembled. Once the milestone branches, the public VMR
+        # carries this branch (branded with that milestone) while main advances to
+        # the NEXT milestone's branding. At that transition we must pull head back
+        # to the branch, otherwise base..main spans two milestones. The branch is
+        # deleted once the milestone ships (a tag replaces it), by which point the
+        # milestone has become a base, not a head. The generate step resolves this
+        # candidate against the clone and falls back to main when it is absent.
+        head_branch_from() {
+          local channel="$1" sdk="$2" milestone="$3"
+          local feature band
+          feature="${sdk#"${channel}."}"   # "100-preview.5.26302.115"
+          feature="${feature%%[-.]*}"       # "100"
+          band="${feature:0:1}xx"           # "1xx"
+          echo "release/${channel}.${band}-${milestone}"
+        }
+
         targets="[]"
         while IFS=$'\t' read -r channel latest_release latest_sdk support_phase; do
           [ -n "$channel" ] || continue
@@ -254,6 +274,7 @@ runs:
           fi
 
           release_version=$(release_version_from "$channel" "$milestone")
+          vmr_head_ref=$(head_branch_from "$channel" "$latest_sdk" "$milestone")
           gen_dir="$AGENT_DIR/generated/${major_flat}-${milestone_label}"
 
           target=$(jq -n \
@@ -263,6 +284,7 @@ runs:
             --arg milestone_label "$milestone_label" \
             --arg last_shipped "$latest_release" \
             --arg vmr_base_tag "$vmr_base_tag" \
+            --arg vmr_head_ref "$vmr_head_ref" \
             --arg phase "$support_phase" \
             --arg phase_dir "$phase_dir" \
             --arg release_version "$release_version" \
@@ -278,7 +300,7 @@ runs:
               branch_features: "release-notes/dotnet-\($major_flat)-\($milestone_label)-features",
               content_dir: "release-notes/\($major)/\($phase_dir)/\($milestone)",
               vmr_base_tag: $vmr_base_tag,
-              vmr_head_ref: "main",
+              vmr_head_ref: $vmr_head_ref,
               release_version: $release_version,
               generated_changes: $generated_changes,
               generated_build_metadata: $generated_build_metadata
@@ -344,6 +366,25 @@ runs:
             echo "::error::VMR base ref '$base' for $major does not resolve in $VMR_PATH"
             git -C "$VMR_PATH" for-each-ref --format='%(refname:short)' 'refs/heads/release/*' 'refs/tags/v*' | grep -F "${major%.*}" || true
             exit 1
+          fi
+
+          # Resolve the head ref. $head is the in-flight milestone release branch
+          # (e.g. release/11.0.1xx-preview6). The transition rule: once that branch
+          # exists, pin to it (pull head back from the leading edge); until then,
+          # draft against main. The blobless clone exposes branches as
+          # origin/<branch> remote-tracking refs; materialize a local branch so
+          # the tool records a clean head ref. Falling back to main is expected
+          # (not an error) when the milestone has not been branched yet.
+          if [ "$head" != "main" ]; then
+            if git -C "$VMR_PATH" rev-parse --verify --quiet "origin/$head^{commit}" >/dev/null 2>&1; then
+              git -C "$VMR_PATH" branch -f "$head" "origin/$head" >/dev/null 2>&1 || true
+              echo "::notice::$major head pinned to milestone branch '$head' (milestone has branched; pulling head back from 'main')."
+            elif git -C "$VMR_PATH" rev-parse --verify --quiet "$head^{commit}" >/dev/null 2>&1; then
+              echo "::notice::$major head pinned to '$head'."
+            else
+              echo "::notice::$major head branch '$head' not present — milestone not branched yet; drafting against 'main' (the leading edge). main may carry the next milestone's branding/content until the branch is cut."
+              head="main"
+            fi
           fi
 
           mkdir -p "$(dirname "$gen_changes")"
