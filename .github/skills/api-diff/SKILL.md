@@ -23,6 +23,12 @@ This is primarily for:
 
 Do **not** trust the locally installed SDK for preview work. Query the target build's packages directly.
 
+**Feeds:** already-published (GA) releases are on the **dotnet-public** feed
+(`https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-public/nuget/v3/index.json`); **upcoming**
+(preview/rc) releases are on the per-major transport feed **dotnet{MAJOR}** (e.g. 11.0 previews ->
+`.../dotnet11/...`). `RunApiDiff.ps1` defaults each side accordingly (preview/rc -> dotnet{MAJOR}, GA ->
+dotnet-public), so a comparison like 10.0 GA vs 11.0-preview.6 resolves without specifying feeds.
+
 Use the process in [api-verification.md](../release-notes/references/api-verification.md):
 
 1. Generate or read `build-metadata.json`

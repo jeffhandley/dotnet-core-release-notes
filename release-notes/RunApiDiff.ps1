@@ -1000,8 +1000,15 @@ If ([System.String]::IsNullOrWhiteSpace($CurrentMajorMinor) -and [System.String]
         $latestDesc = If ($latestApiDiff.PrereleaseLabel) { "$($latestApiDiff.MajorMinor)-$($latestApiDiff.PrereleaseLabel)" } Else { "$($latestApiDiff.MajorMinor) GA" }
         Write-Color cyan "Latest existing api-diff: $latestDesc"
 
-        # Probe the feed for the next version after the latest api-diff
+        # Probe for the next version after the latest api-diff. Published releases are on dotnet-public;
+        # the upcoming major's previews/rcs are on the per-major transport feed dotnet{MAJOR+1}.
         $next = GetNextVersionFromFeed -majorMinor $latestApiDiff.MajorMinor -prereleaseLabel $latestApiDiff.PrereleaseLabel -feedUrl $DotNetPublicFeedUrl
+        If (-not $next) {
+            $nextMajor = [int]$latestApiDiff.MajorMinor.Split('.')[0] + 1
+            $transportFeed = "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet$nextMajor/nuget/v3/index.json"
+            Write-Color cyan "Not found on dotnet-public; probing upcoming transport feed dotnet$nextMajor..."
+            $next = GetNextVersionFromFeed -majorMinor $latestApiDiff.MajorMinor -prereleaseLabel $latestApiDiff.PrereleaseLabel -feedUrl $transportFeed
+        }
 
         If ($next) {
             $CurrentMajorMinor = $next.MajorMinor
@@ -1021,14 +1028,24 @@ If ([System.String]::IsNullOrWhiteSpace($CurrentMajorMinor) -and [System.String]
     }
 }
 
-## Default CurrentNuGetFeed and PreviousNuGetFeed to the dotnet-public feed if not provided
+## Default feeds: published (GA) releases live on dotnet-public; upcoming (preview/rc) releases live on
+## the per-major transport feed dotnet{MAJOR}. Choose per side; dotnet-public stays the fallback.
+Function GetDefaultFeed {
+    Param ([string] $majorMinor, [string] $prereleaseLabel)
+    If (-not [System.String]::IsNullOrWhiteSpace($prereleaseLabel)) {
+        $major = $majorMinor.Split('.')[0]
+        Return "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet$major/nuget/v3/index.json"
+    }
+    Return $DotNetPublicFeedUrl
+}
+
 If ([System.String]::IsNullOrWhiteSpace($CurrentNuGetFeed)) {
-    $CurrentNuGetFeed = $DotNetPublicFeedUrl
+    $CurrentNuGetFeed = GetDefaultFeed $CurrentMajorMinor $CurrentPrereleaseLabel
     Write-Color cyan "Using default current feed: $CurrentNuGetFeed"
 }
 
 If ([System.String]::IsNullOrWhiteSpace($PreviousNuGetFeed)) {
-    $PreviousNuGetFeed = $DotNetPublicFeedUrl
+    $PreviousNuGetFeed = GetDefaultFeed $PreviousMajorMinor $PreviousPrereleaseLabel
     Write-Color cyan "Using default previous feed: $PreviousNuGetFeed"
 }
 
