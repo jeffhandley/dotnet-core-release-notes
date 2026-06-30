@@ -163,15 +163,15 @@ specific checks instead:
 6. **Which code samples or examples are weak, confusing, or unsupported by the text?**
 7. **Which links, issue/PR references, or formatting details still violate house style?**
 8. **What is the single highest-value rewrite still needed in the draft?**
-9. **Is the wording conventional, or is it inventing non-standard phrasing or terms?**
-10. **Are the subject and its adjective or adverb paired in a familiar way?**
-11. **Would this phrasing seem normal in release notes for another developer platform?**
+9. **Is the wording conventional, or is it inventing non-standard phrasing or terms?** *(Lower-confidence taste check — only raise with a concrete, named alternative; do not flag on vibes.)*
+10. **Are the subject and its adjective or adverb paired in a familiar way?** *(Lower-confidence taste check — same caveat as 9.)*
+11. **Would this phrasing seem normal in release notes for another developer platform?** *(Lower-confidence taste check — same caveat as 9.)*
 12. **If `release-notes/features.json` lists this feature, does the section begin with the standard preview blockquote?**
 13. **Does any section hit a hard reject/rewrite trigger above** (prohibited language, bug-fix-as-feature, impenetrable jargon, missing WHY, unexplained niche API, bot/Microsoft attribution, broken reference, implementation-only "our code" sample, undefined domain term)? List each with file + heading + the trigger.
 14. **Does any section misstate scope?** Either (a) it hedges a mainline/default change behind a "when X is configured / compiled with Y" conditional that makes it sound rare, or (b) it describes a *targeted* change (platform/app-model/scenario-specific — check PR labels like `os-android`, `os-ios`) as a general capability without naming the scope or tying it to the reader's apps. Flag it and suggest the corrected framing. (editorial-rules: *Frame conditions by their real prevalence*, *State the scope*)
 15. **Does any heading invent a vague label, reuse an overloaded platform term (e.g. "native") in a new sense, or otherwise bury a named in-flight feature (e.g. runtime-async)?** Name the established feature and suggest a heading that leads with the real significance. (editorial-rules: *Lead with the significance*, *Use the established feature name*)
 16. **Could any section be misread as contradicting .NET's known direction** (e.g. "V1 async" instrumentation reading as backtracking from the runtime-async/V2 focus), **or does it misattribute motivation** — presenting a model-forced/structural change as an optional convenience (e.g. Unsafe Evolution's `unsafe` fields framed as mere ergonomics when whole-type `unsafe` is going away)? Check the PR's *motivation*; state the real driver. (editorial-rules: *Frame against the likely misreading*, *Attribute the motivation correctly*)
-17. **Are sections ordered sensibly — related ones adjacent, not scattered?** Flag any area split across the document (e.g. two `Async …` sections with unrelated material between them) and suggest a consistent-prefix renaming so alpha order clusters them. (editorial-rules: *Feature ordering*)
+17. **Are related sections clustered, not scattered?** Prefer recommending a **consistent-prefix renaming** (so alpha order keeps an area together) over mechanically flagging distance. Only raise scattering on docs with enough sections (roughly **6+**) that adjacency actually helps the reader — skip it on short component files. (editorial-rules: *Feature ordering*)
 
 Ask reviewers to answer with file + heading + issue + suggested rewrite. This
 produces actionable review instead of general taste feedback.
