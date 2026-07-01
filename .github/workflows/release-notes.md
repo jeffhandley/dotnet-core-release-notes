@@ -917,7 +917,7 @@ Using `features.json`, `changes.json`, the reference documents, and any mileston
 
   Run the same lint pair against `README.md` on the features branch worktree before committing it (the README uses inter-file links rather than anchors, so it does not need the TOC tool). **Never commit markdown that does not pass `markdownlint-cli` without `--fix`.**
 - On a populated branch, start by editing the existing markdown rather than drafting a replacement from zero. Integrate new material into existing clusters and sections when it fits the current story (for example, extend an existing performance or GC heading instead of creating a duplicate one).
-- Write feature descriptions following `format-template.md` and `editorial-rules.md`.
+- Write feature descriptions following `format-template.md` and **`editorial-rules.md`** — apply those rules while drafting, not only in review. In particular: no prohibited/marketing language ("out of the box", "seamless", jokey acronym expansions like "Son of Strike"); no agency verbs (`gains`/`joins`/`gets`); route `Fix`/`correct`/`resolve` changes to the **Bug fixes** section, not to feature headings; lead with the established feature name and the real motivation (don't convenience-wash a model-driven change, and don't let a change read as contradicting .NET's direction); state a feature's real **scope** (platform/app-model, general vs. targeted) and define domain terms on first use; show the reader's code, not runtime internals; and never credit bots or Microsoft employees.
 - If `features.json` already includes notes for matching long-running features, use the established feature name and start the section with the standard preview blockquote from the sidecar file.
 - Include a **Community contributors** section that mentions every external contributor with at least one merged PR in the milestone for *this component*, even if their change only appears in bug fixes or was not promoted into a top-level feature section. (External contributors who only worked on other components belong on those components' branches.)
 
@@ -995,32 +995,55 @@ Comments may also direct the agent to make **branch changes** — for example "p
 When unsure about a human's intent, preserve the text and note the question in the
 manifest `comment`. This is a conversation, not a one-shot generation.
 
-#### h. Run the final multi-model review
+#### h. Run the final review — a mandatory self-correction gate
 
-Before pushing the draft, run the `review-release-notes` stage as a **two-agent parallel review**:
+Before pushing the draft, run the `review-release-notes` skill as a **two-agent
+parallel review**. **Use the skill's full, current rubric — do not review from an
+abbreviated checklist pasted here or from memory**, because that rubric is updated
+over time and this prompt must not fork a stale copy of it.
 
 - **Reviewer 1:** Claude Opus 4.6
 - **Reviewer 2:** GPT-5.4
 
-Have each reviewer critique the same draft using the same rubric, examples, and
-this checklist:
+Give both reviewers the same draft, the `references/examples/`, and the skill's
+rubric, and require them to apply, in full:
 
-- Which headings still sound vague, passive, anthropomorphic, or promotional?
-- Which sections fail the 80/20 reader-value test and should be cut, grouped, or demoted?
-- Which sentences infer feelings or outcomes instead of stating the concrete change?
-- Which sections drift into API-inventory mode instead of teaching a user story?
-- Which code samples or examples are weak or confusing?
-- Which links, issue/PR references, or formatting details still violate house style?
-- What is the single highest-value rewrite still needed?
-- Is the wording conventional, or is it inventing non-standard phrasing or terms?
-- Are the subject and its adjective or adverb paired in a familiar way?
-- Would this phrasing seem normal within release notes for another developer platform?
+- the skill's **Hard reject / rewrite triggers** — prohibited language;
+  bug-fix-as-feature; impenetrable jargon; missing WHY; unexplained niche
+  API/surface; bot/Microsoft attribution; broken/mistyped references;
+  implementation-only "our code" samples; undefined domain terms; and
+- the numbered **Reviewer checklist** — including scope framing, buried-lede /
+  overloaded terms, misreading / misattributed motivation, agency verbs
+  (`gains`/`joins`/`gets`), and section clustering.
 
-Ask for file + heading + issue + suggested rewrite, not generic preference. Then:
+Require answers as **file + heading + trigger/item + suggested rewrite**, never
+generic preference.
 
-- apply the changes that have clear consensus
-- keep a human-readable note of any major disagreement
-- avoid "majority vote" thinking when it conflicts with fidelity or house style
+**This is a gate, not advice.** Every hard-trigger hit is **must-fix** before you
+write a manifest: rewrite it, demote it to Bug fixes, cluster/rename it, or cut it.
+Apply consensus changes; for genuine disagreements prefer fidelity, the shared
+`editorial-scoring` rubric, and `editorial-rules.md` over any single model's taste,
+and record the disagreement in the manifest. Re-run the markdownlint gate after
+edits. Do not treat the taste-heavy phrasing checks (the "lower-confidence" items
+in the skill) as blocking unless a reviewer names a concrete, defensible
+alternative.
+
+**Deterministic checks — do these with tools, not model judgment** (the review
+models reliably miss both):
+
+- **Reference typing.** For every `dotnet/<repo> #<n>` link in the draft, confirm
+  the number resolves and the link kind matches — an issue linked as `/pull/<n>`
+  (or a PR linked as `/issues/<n>`) is a defect. Use `gh pr view <n> --repo
+  dotnet/<repo>` with a fallback to `gh issue view`. Cite the implementing PR, not
+  the tracking issue.
+- **Contributor affiliation.** For every inline "Thanks @user" and every
+  **Community contributors** entry, verify the account is (a) not a bot (`@Copilot`,
+  `@dependabot`, `@github-actions`, …) and (b) not a Microsoft employee. The
+  `-msft`/`-microsoft` suffix is only a weak filter — run
+  `gh api users/<user> --jq '.company'` and drop anyone whose company resolves to
+  Microsoft (this catches suffix-less accounts like `@baronfel`, `@cshung`,
+  `@eiriktsarpalis`, `@sebastienros`). Also confirm the credited user actually
+  authored the cited PR (`gh pr view <n> --repo dotnet/<repo> --json author`).
 
 #### i. Prepare the publication manifest
 
