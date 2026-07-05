@@ -185,6 +185,49 @@ store and retrieve 128-bit unsigned integers in SQLite databases
 
 Thanks [@sebastienros](https://github.com/sebastienros) for the contribution.
 
+### Null propagation eliminates redundant `IS NOT NULL` checks
+
+EF Core now uses null propagation to optimize away redundant `IS NOT NULL`
+checks in generated SQL
+([dotnet/efcore #34127](https://github.com/dotnet/efcore/pull/34127)).
+
+When EF Core can determine statically that a value is non-null — for example,
+a required property or a non-nullable navigation — it no longer emits an
+`IS NOT NULL` guard in the SQL output. This produces cleaner, shorter SQL
+for queries involving required properties and reduces query plan complexity:
+
+```csharp
+// The generated SQL no longer includes unnecessary IS NOT NULL checks
+// when the property is required/non-nullable
+var products = context.Products
+    .Where(p => p.Name.Contains("Widget"))
+    .ToList();
+// Before: WHERE p.Name IS NOT NULL AND p.Name LIKE '%Widget%'
+// After:  WHERE p.Name LIKE '%Widget%'
+```
+
+### Runtime constants in precompiled queries
+
+Precompiled queries now support runtime constants
+([dotnet/efcore #38430](https://github.com/dotnet/efcore/pull/38430)).
+
+Previously, parameters that varied between executions had to be passed as
+LINQ parameters. With runtime constant support, values that are constant
+within the scope of a single EF Core context lifetime can be inlined directly
+into precompiled query plans, enabling more efficient query plan reuse without
+requiring a parameterized variant for each unique value.
+
+### Cosmos DB: improved cast and convert support
+
+EF Core's Azure Cosmos DB provider now correctly translates `CAST` and
+`CONVERT` operations in LINQ queries
+([dotnet/efcore #35000](https://github.com/dotnet/efcore/pull/35000)).
+
+Previously, numeric type conversions inside Cosmos DB queries fell back to
+client-side evaluation. EF Core now emits the appropriate Cosmos DB SQL
+conversion functions, keeping the conversion work server-side and avoiding
+unnecessary data transfer.
+
 ## Bug fixes
 
 - Fixed `ExecuteUpdate` returning -1 (indicating 0 rows affected) on open
