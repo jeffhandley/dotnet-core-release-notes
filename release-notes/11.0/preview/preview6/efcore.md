@@ -187,6 +187,22 @@ Thanks [@sebastienros](https://github.com/sebastienros) for the contribution.
 
 ## Bug fixes
 
+- Fixed `ExecuteUpdate` returning -1 (indicating 0 rows affected) on open
+  connections for SQL Server when `SET NOCOUNT ON` is active. EF Core now
+  explicitly sets `NOCOUNT OFF` before executing to ensure accurate row counts
+  ([dotnet/efcore #37827](https://github.com/dotnet/efcore/pull/37827)).
+- Fixed `GroupBy().Select(entity)` followed by a second projection producing
+  incorrect SQL
+  ([dotnet/efcore #38436](https://github.com/dotnet/efcore/pull/38436)).
+- Fixed `NullReferenceException` materializing JSON owned collections with
+  nested primitive collections under lazy-loading proxies
+  ([dotnet/efcore #38473](https://github.com/dotnet/efcore/pull/38473)).
+- Fixed `NullReferenceException` for mistyped default values on non-string
+  columns in migrations
+  ([dotnet/efcore #38399](https://github.com/dotnet/efcore/pull/38399)).
+- Fixed compiled model `CreateRelationalModel()` failing when an owned entity
+  shares its owner's table
+  ([dotnet/efcore #38428](https://github.com/dotnet/efcore/pull/38428)).
 - Fixed SQL Server `SIGN()` returning a floating-point value where an integer
   was expected by wrapping the result in `CAST(... AS int)`
   ([dotnet/efcore #38260](https://github.com/dotnet/efcore/pull/38260)).
@@ -194,9 +210,6 @@ Thanks [@sebastienros](https://github.com/sebastienros) for the contribution.
   computed column's CLR type changes but the SQL expression is unchanged
   ([dotnet/efcore #38252](https://github.com/dotnet/efcore/pull/38252)).
   Thanks [@Clauver](https://github.com/Clauver) for the contribution.
-- Fixed `DateTime.Parse` translation test to use a culture-invariant format
-  so it passes in all locales
-  ([dotnet/efcore #38384](https://github.com/dotnet/efcore/pull/38384)).
 
 ## Community contributors
 
