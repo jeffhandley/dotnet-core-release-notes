@@ -140,6 +140,17 @@ surprising compilation errors or incorrect runtime behavior
 - Fixed duplicate format-specifier locations being reported in computation
   expressions
   ([dotnet/fsharp #19791](https://github.com/dotnet/fsharp/pull/19791)).
+- Fixed open declaration insertion in `.fsx` scripts being placed before
+  `#r`/`#load` directives rather than after them, which caused compilation
+  errors
+  ([dotnet/fsharp #19879](https://github.com/dotnet/fsharp/pull/19879)).
+- Fixed `FS1110` being incorrectly raised inside `task { let! }` expressions
+  when a generic IL extension is in scope
+  ([dotnet/fsharp #19938](https://github.com/dotnet/fsharp/pull/19938)).
+- Improved QuickInfo and symbol-use reporting for `[<CustomOperation>]` keywords:
+  the resolved overload is now shown when the cursor is on a computation
+  expression keyword
+  ([dotnet/fsharp #19865](https://github.com/dotnet/fsharp/pull/19865)).
 
 ## Community contributors
 
