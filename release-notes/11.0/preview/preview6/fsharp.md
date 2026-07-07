@@ -6,6 +6,7 @@
 
 - [InlineIfLambda on Array.init](#inlineiflambda-on-arrayinit)
 - [Improved for expression debugger stepping](#improved-for-expression-debugger-stepping)
+- [Debug inline functions in non-optimized builds](#debug-inline-functions-in-non-optimized-builds)
 - [Interpolated strings in named argument positions](#interpolated-strings-in-named-argument-positions)
 - [Compiler diagnostics improvements](#compiler-diagnostics-improvements)
 - [Bug fixes](#bug-fixes)
@@ -55,6 +56,34 @@ Additionally, sequence point generation for `if` and `match` condition
 expressions is now fixed
 ([dotnet/fsharp #19932](https://github.com/dotnet/fsharp/pull/19932))
 so the debugger correctly highlights the condition before branching.
+
+## Debug inline functions in non-optimized builds
+
+In non-optimized (debug) builds, `inline` functions are now compiled as real
+method calls instead of being inlined at every call site
+([dotnet/fsharp #19548](https://github.com/dotnet/fsharp/pull/19548)).
+
+Before this change, inline functions were always expanded at their call sites,
+making them invisible to the debugger — you could not set a breakpoint inside
+them, step into them, or inspect their local variables. With this change, when
+a project is built without optimization (e.g. with `--debug+` or by default in
+`Debug` configuration), the compiler emits a proper method body that the
+debugger can navigate.
+
+For inline functions that use SRTPs, the compiler generates a specialized
+method for each type instantiation when a single shared method cannot be
+produced.
+
+```fsharp
+let inline add a b = a + b
+
+// In a Debug build, the debugger can now step into 'add' here
+let result = add 1 2
+```
+
+This implements a long-requested [F# language suggestion](https://github.com/fsharp/fslang-suggestions/issues/824)
+that makes it practical to write logic in inline functions without sacrificing
+debuggability.
 
 ## Interpolated strings in named argument positions
 
@@ -160,11 +189,78 @@ surprising compilation errors or incorrect runtime behavior
   the resolved overload is now shown when the cursor is on a computation
   expression keyword
   ([dotnet/fsharp #19865](https://github.com/dotnet/fsharp/pull/19865)).
+- Fixed closures raising a compilation error when reading a protected base field.
+  Accessing an inherited protected field from inside an anonymous function or
+  lambda now compiles correctly
+  ([dotnet/fsharp #19991](https://github.com/dotnet/fsharp/pull/19991)).
+- The optimizer now eliminates unused `Unchecked.defaultof<'T>` bindings instead
+  of keeping them in the emitted IL, reducing unnecessary allocation in
+  generated code
+  ([dotnet/fsharp #19758](https://github.com/dotnet/fsharp/pull/19758)).
+- Fixed spurious type errors for type-provided types under parallel compilation.
+  Type-provider instances shared across parallel compilation workers no longer
+  produce false type-mismatch errors
+  ([dotnet/fsharp #19969](https://github.com/dotnet/fsharp/pull/19969)).
+- Fixed a race condition in parallel compilation when resolving provided
+  namespaces; they are now interned, preventing rare resolution failures
+  ([dotnet/fsharp #20021](https://github.com/dotnet/fsharp/pull/20021)).
+- Fixed FSI mutating script arguments after the `--` separator. Arguments passed
+  after `--` are now read-only after startup, matching documented behavior
+  ([dotnet/fsharp #19926](https://github.com/dotnet/fsharp/pull/19926)).
+- `DebuggableAttribute` is now attached to FSI multi-emit assembly manifests
+  when `--debug+` is active, enabling richer debugger support for FSI-loaded
+  code
+  ([dotnet/fsharp #19921](https://github.com/dotnet/fsharp/pull/19921)).
+- `address-of` operators (`&` / `&&`) are now allowed on type-instantiated
+  generalized `let` bindings, which previously raised an error
+  ([dotnet/fsharp #19948](https://github.com/dotnet/fsharp/pull/19948)).
+- Fixed semantic colorization missing for delegates, slices, computation
+  expression keywords, and members from open types
+  ([dotnet/fsharp #19960](https://github.com/dotnet/fsharp/pull/19960)).
+- Fixed semantic classification missing for type names inside nested
+  copy-and-update record expressions (`{ existing with Field = value }`)
+  ([dotnet/fsharp #19878](https://github.com/dotnet/fsharp/pull/19878)).
+- Fixed named-argument completion stopping after the first argument in
+  method call expressions
+  ([dotnet/fsharp #19940](https://github.com/dotnet/fsharp/pull/19940)).
+- Fixed Go-to-Definition for provided constructors that have no source
+  definition location — the IDE no longer shows an error toast for these
+  ([dotnet/fsharp #19917](https://github.com/dotnet/fsharp/pull/19917)).
+- Go to Metadata for IL fields now shows the `[<Literal>]` attribute and
+  its constant value in the decompiled view
+  ([dotnet/fsharp #19922](https://github.com/dotnet/fsharp/pull/19922)).
+- Overload-resolution errors for C#-style extensions now name the declaring
+  type, making it easier to identify which extension is in scope
+  ([dotnet/fsharp #19925](https://github.com/dotnet/fsharp/pull/19925)).
+- `FSharpMemberOrFunctionOrValue.IsPropertyAccessor` is now exposed in the
+  FCS public API, letting IDEs and analyzers distinguish property accessors
+  from regular methods
+  ([dotnet/fsharp #19883](https://github.com/dotnet/fsharp/pull/19883)).
+- Enum values are now preserved as their declared enum type in `obj`-typed
+  custom attribute arguments, instead of being unboxed to an integer
+  ([dotnet/fsharp #19975](https://github.com/dotnet/fsharp/pull/19975)).
+- `FS0755` is now emitted when `[<CompiledName>]` is applied to a
+  multi-value `let` binding, which cannot have a renamed compiled name
+  ([dotnet/fsharp #19924](https://github.com/dotnet/fsharp/pull/19924)).
+- Fixed packaging of design-time type providers referenced via
+  `ProjectReference` in SDK-style projects
+  ([dotnet/fsharp #19979](https://github.com/dotnet/fsharp/pull/19979)).
+- `FS0039` (undefined identifier) in an `inherit` clause is no longer
+  reported multiple times for the same symbol
+  ([dotnet/fsharp #19862](https://github.com/dotnet/fsharp/pull/19862)).
+- `FS0027` (value restriction) now names the specific function or method
+  parameter where the restriction applies
+  ([dotnet/fsharp #19866](https://github.com/dotnet/fsharp/pull/19866)).
+- Fixed false-positive `FS1113` errors on inline instance members that use
+  a class-scope self identifier
+  ([dotnet/fsharp #19761](https://github.com/dotnet/fsharp/pull/19761)).
 
 ## Community contributors
 
 Thank you contributors! ❤️
 
+- [@auduchinok](https://github.com/dotnet/fsharp/pulls?q=is%3Apr+is%3Amerged+author%3Aauduchinok)
 - [@Booksbaum](https://github.com/dotnet/fsharp/pulls?q=is%3Apr+is%3Amerged+author%3ABooksbaum)
 - [@edgarfgp](https://github.com/dotnet/fsharp/pulls?q=is%3Apr+is%3Amerged+author%3Aedgarfgp)
+- [@KirtiRamchandani](https://github.com/dotnet/fsharp/pulls?q=is%3Apr+is%3Amerged+author%3AKirtiRamchandani)
 - [@nojaf](https://github.com/dotnet/fsharp/pulls?q=is%3Apr+is%3Amerged+author%3Anojaf)
