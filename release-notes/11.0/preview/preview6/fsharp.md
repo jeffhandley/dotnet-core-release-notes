@@ -6,6 +6,7 @@
 
 - [InlineIfLambda on Array.init](#inlineiflambda-on-arrayinit)
 - [Improved for expression debugger stepping](#improved-for-expression-debugger-stepping)
+- [Interpolated strings in named argument positions](#interpolated-strings-in-named-argument-positions)
 - [Compiler diagnostics improvements](#compiler-diagnostics-improvements)
 - [Bug fixes](#bug-fixes)
 - [Community contributors](#community-contributors)
@@ -49,6 +50,30 @@ Debug points are also now emitted at stack-empty positions
 ([dotnet/fsharp #19877](https://github.com/dotnet/fsharp/pull/19877)),
 which prevents stale variable values from appearing in the debugger when
 stepping between statements.
+
+Additionally, sequence point generation for `if` and `match` condition
+expressions is now fixed
+([dotnet/fsharp #19932](https://github.com/dotnet/fsharp/pull/19932))
+so the debugger correctly highlights the condition before branching.
+
+## Interpolated strings in named argument positions
+
+F# now allows interpolated strings to appear immediately after `=` in named
+argument and named record-field positions
+([dotnet/fsharp #19820](https://github.com/dotnet/fsharp/pull/19820)).
+
+Previously, writing an interpolated string as a named argument value required
+an extra pair of parentheses because the parser interpreted the `$` as part
+of an operator pattern. With the fix, the natural syntax compiles directly:
+
+```fsharp
+// Previously a parse error — now valid
+let r = { Name = $"Hello, {user}!" }
+let x = SomeFunction(label = $"item-{id}")
+```
+
+This removes a surprising inconsistency between interpolated strings and other
+literal types in named-argument positions.
 
 ## Compiler diagnostics improvements
 
