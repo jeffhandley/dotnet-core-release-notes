@@ -14,6 +14,10 @@
 - [NativeAOT: faster interface dispatch](#nativeaot-faster-interface-dispatch)
 - [SIMD: Lane construction and composition APIs](#simd-lane-construction-and-composition-apis)
 - [Diagnostics: cDAC loading from SOS installations](#diagnostics-cdac-loading-from-sos-installations)
+- [MemoryExtensions.Min/Max](#memoryextensionsminmax)
+- [Stream wrappers for memory and text-based types](#stream-wrappers-for-memory-and-text-based-types)
+- [Async profiler: TaskAsync instrumentation](#async-profiler-taskasync-instrumentation)
+- [AesGcm and AesCcm: KeySizeInBytes](#aesgcm-and-aesccm-keysizeinbytes)
 - [Bug fixes](#bug-fixes)
 - [Community contributors](#community-contributors)
 
@@ -271,6 +275,92 @@ and loaded from an installed SOS extension, enabling newer cDAC capabilities
 in environments where SOS is deployed separately — such as within Visual Studio,
 dotnet-sos, or crash-dump analysis workflows.
 
+## MemoryExtensions.Min/Max
+
+`MemoryExtensions` now includes `Min<T>` and `Max<T>` extension methods for
+`Span<T>`, `ReadOnlySpan<T>`, `Memory<T>`, and `ReadOnlyMemory<T>`
+([dotnet/runtime #128306](https://github.com/dotnet/runtime/pull/128306)).
+
+These methods return the minimum or maximum element in a span, using
+`IComparable<T>` semantics. They mirror the LINQ operators of the same names
+but work directly on spans without boxing or enumerator overhead:
+
+```csharp
+Span<int> values = [3, 1, 4, 1, 5, 9, 2, 6];
+int min = values.Min(); // 1
+int max = values.Max(); // 9
+
+// Also works on memory-based types
+ReadOnlyMemory<double> scores = measurements;
+double peak = scores.Span.Max();
+```
+
+For hot paths that already hold a span — for example, array segments in
+serializers, numeric pipelines, or pooled buffers — these methods are a
+drop-in replacement for `Enumerable.Min`/`Max` without the `IEnumerable<T>`
+overhead.
+
+## Stream wrappers for memory and text-based types
+
+`System.IO` gains new `Stream` wrapper types for reading from in-memory
+buffers and text sources
+([dotnet/runtime #126669](https://github.com/dotnet/runtime/pull/126669)).
+
+The new wrappers let you pass `ReadOnlyMemory<byte>`, `ReadOnlySequence<byte>`,
+`TextReader`, and similar in-memory sources to APIs that expect a `Stream`,
+without copying data into a `MemoryStream` first:
+
+```csharp
+// Wrap a ReadOnlyMemory<byte> as a Stream (zero-copy)
+ReadOnlyMemory<byte> buffer = GetPacket();
+using Stream stream = buffer.AsStream();
+await ProcessAsync(stream);
+
+// Wrap a TextReader as a Stream using a specified encoding
+using TextReader reader = new StringReader(xmlText);
+using Stream xmlStream = reader.AsStream(Encoding.UTF8);
+XElement doc = XElement.Load(xmlStream);
+```
+
+These wrappers are useful in serialization, networking, and test scenarios
+where the same buffer needs to be surfaced through multiple abstraction layers.
+
+## Async profiler: TaskAsync instrumentation
+
+The diagnostics infrastructure includes initial support for profiling async
+task execution
+([dotnet/runtime #129043](https://github.com/dotnet/runtime/pull/129043)).
+
+The V1 `TaskAsync` instrumentation layer inserts probes at async state machine
+transitions — at `await` suspension points and at continuation resumptions. A
+profiler that subscribes to these probes receives a logical task timeline with
+creation, await, and completion events, making it possible to attribute CPU
+time and wall-clock latency to individual `Task` and `ValueTask` operations
+without relying on ETW or EventPipe post-processing alone.
+
+This is a profiler-facing API addition; end-user diagnostics tooling that
+builds on top of the profiler infrastructure will follow.
+
+## AesGcm and AesCcm: KeySizeInBytes
+
+`AesGcm` and `AesCcm` now expose a `KeySizeInBytes` property that returns the
+length of the key used to create the instance
+([dotnet/runtime #129770](https://github.com/dotnet/runtime/pull/129770)).
+
+Previously there was no standard way to inspect the key length of an existing
+`AesGcm` or `AesCcm` object without maintaining a separate variable:
+
+```csharp
+var key = RandomNumberGenerator.GetBytes(32); // AES-256
+using var aesGcm = new AesGcm(key, tagSizeInBytes: 16);
+
+Console.WriteLine(aesGcm.KeySizeInBytes); // 32
+```
+
+This property complements the existing `LegalKeySizes` static and
+`TagSizeInBytes` instance members, enabling round-trippable inspection of an
+AES-GCM or AES-CCM instance.
+
 ## Bug fixes
 
 - Fixed duplicate disposal of shared singleton instances in `IServiceProvider`.
@@ -325,6 +415,14 @@ dotnet-sos, or crash-dump analysis workflows.
   ([dotnet/runtime #129428](https://github.com/dotnet/runtime/pull/129428)).
 - Fixed `NoopLimiter` disposal in `DefaultPartitionedRateLimiter` heartbeat loop
   ([dotnet/runtime #127582](https://github.com/dotnet/runtime/pull/127582)).
+- Fixed `Expression.Compile` producing incorrect results for `OrElse` and
+  `AndAlso` expressions when both branches contain side effects: the evaluation
+  stack is now properly emptied before the second operand is evaluated
+  ([dotnet/runtime #110721](https://github.com/dotnet/runtime/pull/110721)).
+- Added `System.Diagnostics.Process` support on OpenBSD
+  ([dotnet/runtime #129470](https://github.com/dotnet/runtime/pull/129470)).
+- Added `System.Net.NetworkInformation` support on OpenBSD
+  ([dotnet/runtime #129279](https://github.com/dotnet/runtime/pull/129279)).
 
 ## Community contributors
 
