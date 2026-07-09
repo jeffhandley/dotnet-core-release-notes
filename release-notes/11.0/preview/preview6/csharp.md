@@ -4,6 +4,7 @@
 
 <!-- toc -->
 
+- [Extension indexers](#extension-indexers)
 - [Union type refinements](#union-type-refinements)
 - [Unsafe fields](#unsafe-fields)
 - [Unsafe evolution: unsafe expressions](#unsafe-evolution-unsafe-expressions)
@@ -22,6 +23,54 @@ semantics may evolve before the final release. Feedback is welcome on the
 C# updates in .NET 11:
 
 - [What's new in C# 14](https://learn.microsoft.com/dotnet/csharp/whats-new/csharp-14)
+
+## Extension indexers
+
+> Extension indexers are a C# 14 preview feature. Syntax and semantics may
+> change before the final release. Feedback is welcome on the
+> [dotnet/csharplang](https://github.com/dotnet/csharplang) repo.
+
+C# 14 now supports defining indexers in extension types
+([dotnet/roslyn #84200](https://github.com/dotnet/roslyn/pull/84200)).
+
+Previously, extension methods let you add methods to an existing type, but
+indexers — the `this[...]` member syntax — could not be defined as extension
+members. With C# 14 extension types, you can now add indexers to types you
+don't own:
+
+```csharp
+// Extend IDictionary<string, object> with a typed indexer
+extension DictionaryExtensions for IDictionary<string, object>
+{
+    public T this<T>[string key] => (T)this[key];
+}
+
+var bag = new Dictionary<string, object> { ["name"] = "Alice", ["age"] = 30 };
+string name = bag<string>["name"];   // uses the extension indexer
+int    age  = bag<int>["age"];
+```
+
+Extension indexers support the same features as regular indexers: read/write
+access, multi-parameter signatures, and `ref`/`in` return types. They also
+participate in the collection slice protocol — a type that defines an
+extension `Slice(int, int)` method can now also gain an extension indexer for
+range access:
+
+```csharp
+extension SpanLikeRange for MyCollection
+{
+    public int this[Range r] => this.Slice(r.Start.Value, r.GetOffsetAndLength(Count).Length);
+}
+
+var col = new MyCollection(1..10);
+var sub = col[2..5];   // calls the extension indexer
+```
+
+Nullability analysis, list-pattern matching, and CREF documentation
+references all work with extension indexers
+([dotnet/roslyn #81971](https://github.com/dotnet/roslyn/pull/81971),
+[dotnet/roslyn #82757](https://github.com/dotnet/roslyn/pull/82757),
+[dotnet/roslyn #82012](https://github.com/dotnet/roslyn/pull/82012)).
 
 ## Union type refinements
 
