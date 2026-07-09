@@ -210,6 +210,9 @@ Thanks [@sebastienros](https://github.com/sebastienros) for the contribution.
   computed column's CLR type changes but the SQL expression is unchanged
   ([dotnet/efcore #38252](https://github.com/dotnet/efcore/pull/38252)).
   Thanks [@Clauver](https://github.com/Clauver) for the contribution.
+- Fixed `ALTER COLUMN` incorrectly changing a JSON column's type to `nvarchar`
+  during SQL Server migrations when the column stores JSON
+  ([dotnet/efcore #38464](https://github.com/dotnet/efcore/pull/38464)).
 
 ## Community contributors
 
