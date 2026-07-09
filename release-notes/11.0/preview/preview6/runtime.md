@@ -12,6 +12,7 @@
 - [Process start-suspended support](#process-start-suspended-support)
 - [Async continuations without ExecutionContext](#async-continuations-without-executioncontext)
 - [NativeAOT: faster interface dispatch](#nativeaot-faster-interface-dispatch)
+- [SIMD: Lane construction and composition APIs](#simd-lane-construction-and-composition-apis)
 - [Bug fixes](#bug-fixes)
 - [Community contributors](#community-contributors)
 
@@ -213,6 +214,33 @@ dispatch through a shared helper that can be patched to the correct
 implementation after the call site warms up. This reduces the binary size of
 interface call sites and improves throughput on workloads with many interface
 method calls.
+
+## SIMD: Lane construction and composition APIs
+
+`System.Runtime.Intrinsics` now includes lane construction and composition
+APIs for all hardware vector types
+([dotnet/runtime #127690](https://github.com/dotnet/runtime/pull/127690),
+[dotnet/runtime #129627](https://github.com/dotnet/runtime/pull/129627)).
+
+The new APIs let you construct a vector from individually specified lanes and
+extract or reorder lanes between vectors. This enables precise, portable
+control over SIMD vector element placement without falling back to
+platform-specific intrinsics:
+
+```csharp
+// Construct a Vector128<int> from four individual lane values
+var v = Vector128.Create(lane0: 10, lane1: 20, lane2: 30, lane3: 40);
+
+// Extract a lane from one vector and insert it into another
+var composed = v.WithElement(2, 99);
+// composed = <10, 20, 99, 40>
+```
+
+These building blocks are useful for image processing, audio DSP, and other
+SIMD-intensive workloads that need fine-grained control over vector element
+layout.
+
+Thanks [@SebastianSie](https://github.com/SebastianSie) for the contribution.
 
 ## Bug fixes
 
