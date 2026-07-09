@@ -18,11 +18,7 @@
 - [Routing: short-circuit attribute](#routing-short-circuit-attribute)
 - [Virtualize component: CSP compliance](#virtualize-component-csp-compliance)
 - [SignalR: token refresh support](#signalr-token-refresh-support)
-- [Blazor analyzers: StateHasChanged and AuthenticationStateChanged](#blazor-analyzers-statehaschanged-and-authenticationstatechanged)
 - [Bug fixes](#bug-fixes)
-- [Community contributors](#community-contributors)
-
-<!-- tocstop -->
 - [Community contributors](#community-contributors)
 
 <!-- tocstop -->
@@ -318,7 +314,7 @@ instead, so no CSP exception is needed.
 SignalR now supports token refresh on both the server and the .NET client,
 allowing long-lived connections to transparently renew their authentication
 tokens without dropping the connection
-([dotnet/aspnetcore #67111](https://github.com/dotnet/aspnetcore/pull/67111)).
+([dotnet/aspnetcore #67400](https://github.com/dotnet/aspnetcore/pull/67400)).
 
 Previously, a SignalR connection authorized with a bearer token would fail
 when the token expired, requiring a full reconnect and re-authentication.
@@ -342,29 +338,6 @@ var connection = new HubConnectionBuilder()
 On the server side, middleware infrastructure detects a refresh event and
 re-authenticates the connected principal in place, so authorization policies
 and `HubContext` identity stay consistent throughout the connection lifetime.
-
-## Blazor analyzers: StateHasChanged and AuthenticationStateChanged
-
-Two new Roslyn analyzers help catch common Blazor mistakes at design time.
-
-**BL0012: Unnecessary `StateHasChanged` call** flags invocations of
-`StateHasChanged()` that are redundant because Blazor already re-renders the
-component automatically in the same context
-([dotnet/aspnetcore #67176](https://github.com/dotnet/aspnetcore/pull/67176)).
-Common patterns flagged include calling `StateHasChanged()` in `OnInitializedAsync`
-after `await` or at the end of event handlers, where the render cycle is
-already scheduled.
-
-**BL0013: Missing `AuthenticationStateChanged` subscription** warns when a
-component injects `AuthenticationStateProvider` but does not subscribe to its
-`AuthenticationStateChanged` event
-([dotnet/aspnetcore #67383](https://github.com/dotnet/aspnetcore/pull/67383)).
-Omitting this subscription means the component won't re-render when the user's
-authentication state changes, leading to stale UI.
-
-Both analyzers ship as part of the existing
-`Microsoft.AspNetCore.Components.Analyzers` package and emit warnings by
-default with suppressor support.
 
 ## Bug fixes
 
@@ -397,16 +370,12 @@ default with suppressor support.
 - Fixed host filtering middleware not matching a leading dot when a wildcard
   host entry is used (e.g., `.example.com`)
   ([dotnet/aspnetcore #67265](https://github.com/dotnet/aspnetcore/pull/67265)).
-- Fixed Rewrite middleware collapsing scheme-relative leading slashes (e.g.,
-  `//evil.example.com`) into redirect targets, which could be exploited for
-  open-redirect attacks
-  ([dotnet/aspnetcore #66961](https://github.com/dotnet/aspnetcore/pull/66961)).
-- Removed long-obsolete MVC APIs that have been marked for removal since
-  .NET 7, including several controller-context and filter-pipeline overloads
-  ([dotnet/aspnetcore #67077](https://github.com/dotnet/aspnetcore/pull/67077)).
-- Updated Blazor `RequestCircuitPauseAsync` API signature following API review;
-  the feature enables pausing and resuming a Blazor Server circuit
-  ([dotnet/aspnetcore #67045](https://github.com/dotnet/aspnetcore/pull/67045)).
+- Fixed Blazor WebView `blazor.modules.json` publish crash when browser
+  configuration fallback was triggered
+  ([dotnet/aspnetcore #67401](https://github.com/dotnet/aspnetcore/pull/67401)).
+- Fixed Blazor WebAssembly Standalone HTTPS failing at startup when routed
+  through a gateway
+  ([dotnet/aspnetcore #67565](https://github.com/dotnet/aspnetcore/pull/67565)).
 
 ## Community contributors
 
