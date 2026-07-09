@@ -152,6 +152,14 @@ and alignment with the rest of the .NET CLI tool ecosystem.
 which enables CLI tools built with it to publish as self-contained NativeAOT or
 trimmed applications without warnings.
 
+**Insecure HTTP source checks applied to audit sources.** NuGet's existing
+check that warns when a package source uses HTTP instead of HTTPS now also
+covers audit sources configured in `NuGet.Config`
+([nuget/nuget.client #7514](https://github.com/nuget/nuget.client/pull/7514)).
+Previously, HTTP-only audit sources were silently accepted during restore; they
+now trigger the same warning as regular HTTP sources, encouraging use of HTTPS
+for vulnerability data feeds.
+
 ## Bug fixes
 
 - Fixed `dotnet test` not forwarding terminal logger arguments (e.g.,
