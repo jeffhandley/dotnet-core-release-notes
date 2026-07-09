@@ -64,6 +64,23 @@ provider as an interface is now an error, since the interface shape alone
 cannot satisfy the runtime requirements of a union
 ([dotnet/roslyn #83815](https://github.com/dotnet/roslyn/pull/83815)).
 
+**Non-public constructors are allowed in union members.** A union member
+declaration can now specify a constructor with a single parameter whose
+accessibility is `private`, `internal`, or `protected`, giving you control over
+who can construct that union case:
+
+```csharp
+union Result
+{
+    Ok(int Value),
+    internal Error(string Message)  // only code in the same assembly can create Error
+}
+```
+
+This is useful for sealed class hierarchies where you want to expose pattern
+matching publicly but restrict direct construction of error or internal cases
+([dotnet/roslyn #83788](https://github.com/dotnet/roslyn/pull/83788)).
+
 Together with the Preview 5 foundation ([PR #83705](https://github.com/dotnet/roslyn/pull/83705)),
 Preview 6 makes union exhaustiveness, pattern semantics, and toolability
 significantly more complete. Example:
