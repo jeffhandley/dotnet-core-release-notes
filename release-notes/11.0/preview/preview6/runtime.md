@@ -155,6 +155,19 @@ scalable types and enables better code generation for SVE-intensive code.
 
 Thanks [@SwapnilGaikwad](https://github.com/SwapnilGaikwad) for the contribution.
 
+### JIT compiles async methods natively
+
+The JIT now generates native async implementations for synchronous
+task-returning methods
+([dotnet/runtime #128384](https://github.com/dotnet/runtime/pull/128384)).
+
+When a method returns `Task` or `ValueTask` and the JIT determines that the
+async state machine emitted by the C# compiler can be handled more efficiently,
+it generates a native async continuation path instead of the heap-allocated
+state machine. This reduces allocation pressure and stack overhead for methods
+that await a small number of awaitables. The transformation is transparent —
+no code changes are required, and the observable async behavior is identical.
+
 ## In-process crash report logging
 
 A new in-process crash reporting mechanism captures diagnostic information
@@ -260,6 +273,32 @@ dotnet-sos, or crash-dump analysis workflows.
 
 ## Bug fixes
 
+- Fixed duplicate disposal of shared singleton instances in `IServiceProvider`.
+  Previously, a singleton registered with `AddSingleton` could be disposed
+  twice when multiple container scopes shared the same instance and both
+  scopes were disposed
+  ([dotnet/runtime #128768](https://github.com/dotnet/runtime/pull/128768)).
+- Fixed alignment of 8-byte thread statics on the direct TLS path, which
+  could cause misalignment faults on platforms with strict alignment requirements
+  ([dotnet/runtime #129749](https://github.com/dotnet/runtime/pull/129749)).
+- Fixed `ValueType.GetHashCode` for structs with nested generic fields,
+  which was producing incorrect hash codes in some cases
+  ([dotnet/runtime #129728](https://github.com/dotnet/runtime/pull/129728)).
+- Fixed a GC hole when a method return is hijacked for GC suspension —
+  the return value could be collected before it was stored
+  ([dotnet/runtime #129714](https://github.com/dotnet/runtime/pull/129714)).
+- Fixed `JsonSchemaExporter` dropping nullability for nullable floating-point
+  composition schemas
+  ([dotnet/runtime #129530](https://github.com/dotnet/runtime/pull/129530)).
+- Validated DNS hostnames for embedded null characters, which could previously
+  cause unexpected behavior in hostname resolution
+  ([dotnet/runtime #128982](https://github.com/dotnet/runtime/pull/128982)).
+- Validated uncompressed size up front in `ZipArchiveEntry` update mode to
+  detect corrupted archives earlier
+  ([dotnet/runtime #128319](https://github.com/dotnet/runtime/pull/128319)).
+- Fixed `OpenSSL X509Chain` time validity check depending on process time zone
+  instead of UTC
+  ([dotnet/runtime #129394](https://github.com/dotnet/runtime/pull/129394)).
 - Fixed `Socket.Blocking` not being set from the underlying handle when
   constructing a `Socket` from a `SafeSocketHandle`
   ([dotnet/runtime #128433](https://github.com/dotnet/runtime/pull/128433)).
