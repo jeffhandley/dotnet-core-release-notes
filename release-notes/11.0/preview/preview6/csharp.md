@@ -6,6 +6,8 @@
 
 - [Union type refinements](#union-type-refinements)
 - [Unsafe fields](#unsafe-fields)
+- [Unsafe evolution: unsafe expressions](#unsafe-evolution-unsafe-expressions)
+- [Unsafe evolution: explicit struct layout](#unsafe-evolution-explicit-struct-layout)
 - [RegisterPreCompilationSourceOutput for incremental generators](#registerprecompilationsourceoutput-for-incremental-generators)
 - [Hot Reload fix: re-enables after debug session restarts](#hot-reload-fix-re-enables-after-debug-session-restarts)
 - [Bug fixes](#bug-fixes)
@@ -108,6 +110,57 @@ class SomeNativeWrapper
 This is the same granularity that exists for unsafe *methods* and unsafe
 *local variables*, now extended to fields. The feature is part of the broader
 C# Unsafe Evolution effort to reduce the blast radius of the `unsafe` modifier.
+
+## Unsafe evolution: unsafe expressions
+
+C# 14 extends the Unsafe Evolution roadmap with `unsafe` expressions
+([dotnet/roslyn #84012](https://github.com/dotnet/roslyn/pull/84012)).
+
+Previously, accessing an unsafe API inside an otherwise-safe method required
+an `unsafe` block wrapping the entire statement. With `unsafe` expressions,
+you can apply the `unsafe` modifier directly to the expression that needs it,
+limiting the unsafe context to the smallest possible site:
+
+```csharp
+// Before: entire block is unsafe
+unsafe
+{
+    byte* ptr = stackalloc byte[64];
+    Process(ptr);
+}
+
+// After: only the stackalloc expression is unsafe
+byte* ptr = unsafe stackalloc byte[64];
+Process(ptr);
+```
+
+This is a natural complement to `unsafe` fields (Preview 6) and continues the
+goal of reducing the blast radius of the `unsafe` modifier.
+
+## Unsafe evolution: explicit struct layout
+
+C# 14 removes the requirement to mark a struct as `unsafe` when it uses
+explicit layout
+([dotnet/roslyn #83974](https://github.com/dotnet/roslyn/pull/83974)).
+
+`[StructLayout(LayoutKind.Explicit)]` and `[FieldOffset]` attributes control
+the byte-level position of fields in a struct. These are used for interop with
+native code or for memory-mapped I/O. In prior C# versions, the compiler
+required the enclosing type to be in an `unsafe` context even when no pointer
+or function-pointer types were involved. C# 14 removes that restriction so
+you can write a safe struct with explicit layout:
+
+```csharp
+// No `unsafe` needed — struct and method are fully safe
+[StructLayout(LayoutKind.Explicit, Size = 4)]
+struct Color
+{
+    [FieldOffset(0)] public byte B;
+    [FieldOffset(1)] public byte G;
+    [FieldOffset(2)] public byte R;
+    [FieldOffset(3)] public byte A;
+}
+```
 
 ## RegisterPreCompilationSourceOutput for incremental generators
 
