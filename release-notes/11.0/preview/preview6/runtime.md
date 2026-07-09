@@ -9,6 +9,7 @@
 - [Arm64 PAC-RET support](#arm64-pac-ret-support)
 - [JIT improvements](#jit-improvements)
 - [In-process crash report logging](#in-process-crash-report-logging)
+- [Process start-suspended support](#process-start-suspended-support)
 - [NativeAOT: faster interface dispatch](#nativeaot-faster-interface-dispatch)
 - [Bug fixes](#bug-fixes)
 - [Community contributors](#community-contributors)
@@ -163,6 +164,27 @@ crash), it can miss information that is only available inside the dying
 process. The new in-process path logs the managed stack trace, module list,
 and key runtime state to a well-known path before the process exits.
 
+## Process start-suspended support
+
+`Process.Start` on Windows now supports launching a process in a suspended state
+([dotnet/runtime #129512](https://github.com/dotnet/runtime/pull/129512)).
+
+Set `ProcessStartInfo.StartSuspended = true` to create the process with the
+Windows `CREATE_SUSPENDED` flag, then call `Resume()` on the returned
+`SafeProcessHandle` to begin execution. This lets you attach to the process,
+set job objects, or configure security attributes before the first user-mode
+instruction runs.
+
+```csharp
+var psi = new ProcessStartInfo("myapp")
+{
+    StartSuspended = true
+};
+using var process = Process.Start(psi)!;
+// Do setup work here (e.g., assign to a job object)
+process.SafeHandle.Resume();
+```
+
 ## NativeAOT: faster interface dispatch
 
 Native AOT now uses a dispatch helper for interface method calls
@@ -197,6 +219,11 @@ method calls.
   reallocations for known-size inputs
   ([dotnet/runtime #128300](https://github.com/dotnet/runtime/pull/128300)).
   Thanks [@eiriktsarpalis](https://github.com/eiriktsarpalis) for the contribution.
+- Improved `WebSocket` exceptions to include informative messages with connection
+  context, making WebSocket failures easier to diagnose
+  ([dotnet/runtime #129428](https://github.com/dotnet/runtime/pull/129428)).
+- Fixed `NoopLimiter` disposal in `DefaultPartitionedRateLimiter` heartbeat loop
+  ([dotnet/runtime #127582](https://github.com/dotnet/runtime/pull/127582)).
 
 ## Community contributors
 
