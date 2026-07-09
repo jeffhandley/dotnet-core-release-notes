@@ -263,6 +263,15 @@ IDE ([dotnet/roslyn #83747](https://github.com/dotnet/roslyn/pull/83747)).
   `out`/`ref` parameter of a nullable type, where the suggested pattern-match
   would have been semantically incorrect
   ([dotnet/roslyn #83883](https://github.com/dotnet/roslyn/pull/83883)).
+- Improved nullable flow analysis inside switch expressions: the compiler now
+  correctly reports unhandled `null` values when decision-dag reachability is
+  refined by nullable analysis, preventing false positives where `null` was
+  considered handled even though no arm matched it
+  ([dotnet/roslyn #84207](https://github.com/dotnet/roslyn/pull/84207)).
+- Added a warning to the "make async Task" code fixer when the target method
+  is used as a delegate: making it async changes the return type from `void`
+  to `Task`, which may be incompatible with the delegate signature
+  ([dotnet/roslyn #84142](https://github.com/dotnet/roslyn/pull/84142)).
 
 ## Community contributors
 
