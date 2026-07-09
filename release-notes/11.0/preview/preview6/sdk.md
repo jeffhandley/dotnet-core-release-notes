@@ -154,6 +154,20 @@ trimmed applications without warnings.
 
 ## Bug fixes
 
+- Fixed `dotnet test` not forwarding terminal logger arguments (e.g.,
+  `--logger:trx`) to the MSBuild invocation, causing test result files to be
+  missing when running without a launch profile
+  ([dotnet/sdk #54310](https://github.com/dotnet/sdk/pull/54310)).
+- Improved the empty `TargetFramework` property diagnostic. A new `NETSDK1241`
+  error is now reported when `<TargetFramework />` is set but empty, with a
+  clear message pointing to the property name
+  ([dotnet/sdk #54335](https://github.com/dotnet/sdk/pull/54335)).
+- Fixed `--environment` variables not being applied to the test process when
+  running without a launch profile
+  ([dotnet/sdk #53306](https://github.com/dotnet/sdk/pull/53306)).
+- Improved `dotnet tool update` messages to include the existing installed
+  version alongside the new version, making upgrade output clearer
+  ([dotnet/sdk #54192](https://github.com/dotnet/sdk/pull/54192)).
 - Fixed the CLI parser crashing when `global.json` is present but unreadable
   instead of reporting a clear error
   ([dotnet/sdk #54433](https://github.com/dotnet/sdk/pull/54433)).
