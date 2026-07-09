@@ -10,6 +10,7 @@
 - [JIT improvements](#jit-improvements)
 - [In-process crash report logging](#in-process-crash-report-logging)
 - [Process start-suspended support](#process-start-suspended-support)
+- [Async continuations without ExecutionContext](#async-continuations-without-executioncontext)
 - [NativeAOT: faster interface dispatch](#nativeaot-faster-interface-dispatch)
 - [Bug fixes](#bug-fixes)
 - [Community contributors](#community-contributors)
@@ -184,6 +185,23 @@ using var process = Process.Start(psi)!;
 // Do setup work here (e.g., assign to a job object)
 process.SafeHandle.Resume();
 ```
+
+## Async continuations without ExecutionContext
+
+Async continuations can now opt out of `ExecutionContext` capture and restore
+([dotnet/runtime #128323](https://github.com/dotnet/runtime/pull/128323)).
+
+`ExecutionContext` carries ambient state — such as `AsyncLocal<T>` values —
+across `await` points. Every `Task` continuation previously captured a
+snapshot of the context and restored it before running, even when no
+`AsyncLocal<T>` state was in use and the restore was a no-op.
+
+The runtime now detects when a continuation has nothing to restore and skips
+the capture/restore cycle entirely. `Task`, `Task<T>`, `ValueTask`, and
+`ValueTask<T>` all benefit from this change, as does the `runtime-async`
+implementation path. Applications that use `ConfigureAwait(false)` and
+`AsyncLocal<T>` sparingly will see reduced overhead in high-throughput async
+code paths.
 
 ## NativeAOT: faster interface dispatch
 
