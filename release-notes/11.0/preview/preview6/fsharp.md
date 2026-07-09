@@ -147,6 +147,15 @@ surprising compilation errors or incorrect runtime behavior
 - Fixed `FS1110` being incorrectly raised inside `task { let! }` expressions
   when a generic IL extension is in scope
   ([dotnet/fsharp #19938](https://github.com/dotnet/fsharp/pull/19938)).
+- Fixed recursive self-reference ref cells being incorrectly classified as
+  mutable, which caused spurious compile errors in valid recursive definitions
+  ([dotnet/fsharp #19918](https://github.com/dotnet/fsharp/pull/19918)).
+- Added diagnostic for duplicate sibling modules in recursive module groups,
+  providing a clear error instead of silent miscompilation
+  ([dotnet/fsharp #19913](https://github.com/dotnet/fsharp/pull/19913)).
+- Fixed remaining interpolated-string forms adjacent to `=` not being parsed
+  correctly, completing coverage for edge cases in the interpolation grammar
+  ([dotnet/fsharp #19984](https://github.com/dotnet/fsharp/pull/19984)).
 - Improved QuickInfo and symbol-use reporting for `[<CustomOperation>]` keywords:
   the resolved overload is now shown when the cursor is on a computation
   expression keyword
