@@ -110,6 +110,26 @@ surprising compilation errors or incorrect runtime behavior
 
 ## Bug fixes
 
+- Fixed FSI pretty printing for anonymous records. Anonymous record values
+  now display with correct field names and layout in F# Interactive
+  ([dotnet/fsharp #19919](https://github.com/dotnet/fsharp/pull/19919)).
+- Fixed a `FieldAccessException` when the optimizer relocates a protected
+  base-field access across method boundaries during optimization
+  ([dotnet/fsharp #19964](https://github.com/dotnet/fsharp/pull/19964)).
+- Fixed lost source range for empty-bodied computation expressions in
+  pipelines, preventing correct breakpoint placement on continuation steps
+  ([dotnet/fsharp #19849](https://github.com/dotnet/fsharp/pull/19849)).
+- Added `FS3889` diagnostic for namespace/type name collision. When an
+  open namespace and a local type share the same identifier, the compiler
+  now emits a clear warning rather than silently choosing the wrong binding
+  ([dotnet/fsharp #19802](https://github.com/dotnet/fsharp/pull/19802)).
+- Improved FS3261 (nullness) warnings to pinpoint the receiver range, name the
+  member, and identify the binding in dot-access expressions — making null
+  safety warnings actionable for specific locations
+  ([dotnet/fsharp #19814](https://github.com/dotnet/fsharp/pull/19814)).
+- Fixed the language-version checker not recovering gracefully when parsing
+  language version pragma values
+  ([dotnet/fsharp #19970](https://github.com/dotnet/fsharp/pull/19970)).
 - Fixed type aliases not being preserved in `match | null` branch refinement.
   Matching a union type against `null` no longer strips the type alias from
   the non-null branch
