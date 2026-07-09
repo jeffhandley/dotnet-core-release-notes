@@ -11,6 +11,12 @@
 - [dotnet-user-jwts --file support for file-based apps](#dotnet-user-jwts---file-support-for-file-based-apps)
 - [OpenAPI and union types](#openapi-and-union-types)
 - [OpenAPI 3.2: additional operations emission](#openapi-32-additional-operations-emission)
+- [Blazor WebAssembly Out-of-Process Renderer](#blazor-webassembly-out-of-process-renderer)
+- [Async validation in Microsoft.Extensions.Validation](#async-validation-in-microsoftextensionsvalidation)
+- [SignalR: cancel hub invocations from the client](#signalr-cancel-hub-invocations-from-the-client)
+- [Deferred antiforgery rejection via IAntiforgeryValidationFeature](#deferred-antiforgery-rejection-via-iantiforgeryvalidationfeature)
+- [Routing: short-circuit attribute](#routing-short-circuit-attribute)
+- [Virtualize component: CSP compliance](#virtualize-component-csp-compliance)
 - [Bug fixes](#bug-fixes)
 - [Community contributors](#community-contributors)
 
@@ -168,38 +174,171 @@ This extends the QUERY support introduced in Preview 4 so that API explorers
 and client generators that don't understand custom operations can still
 discover and consume these endpoints via the extension field.
 
+## Blazor WebAssembly Out-of-Process Renderer
+
+Blazor now supports an out-of-process WebAssembly renderer — a new render
+mode that offloads WebAssembly execution from the web server to the browser
+while still keeping the gateway server in control of routing and security
+([dotnet/aspnetcore #66442](https://github.com/dotnet/aspnetcore/pull/66442)).
+
+With `InteractiveAuto` or explicit `InteractiveWebAssembly` render mode,
+Blazor can download and run component code in the browser. The new
+out-of-process path separates the renderer host from the application host,
+letting the application gateway (e.g., an Aspire AppHost or a standalone
+proxy) coordinate the Blazor circuit without requiring the full .NET runtime
+on the server. This reduces server-side memory and CPU pressure for
+WebAssembly-heavy workloads while preserving server-side routing, auth, and
+pre-rendering.
+
+## Async validation in Microsoft.Extensions.Validation
+
+`Microsoft.Extensions.Validation` now supports async validators
+([dotnet/aspnetcore #66487](https://github.com/dotnet/aspnetcore/pull/66487)).
+
+The validation API accepted synchronous validators in earlier previews. The
+new `IAsyncValidatableObject` interface and `ValidateAsync` overloads let you
+perform I/O-bound validation — such as a database uniqueness check — without
+blocking a thread:
+
+```csharp
+public class NewUserModel : IAsyncValidatableObject
+{
+    public string UserName { get; set; } = "";
+
+    public async IAsyncEnumerable<ValidationResult> ValidateAsync(
+        ValidationContext context,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var db = context.GetRequiredService<AppDbContext>();
+        bool exists = await db.Users
+            .AnyAsync(u => u.UserName == UserName, cancellationToken);
+        if (exists)
+            yield return new ValidationResult(
+                "Username is already taken.", [nameof(UserName)]);
+    }
+}
+```
+
+Async validation integrates with Minimal APIs, MVC, and the new parameter-
+validation middleware the same way synchronous validation does.
+
+## SignalR: cancel hub invocations from the client
+
+SignalR clients can now cancel regular (non-streaming) hub method invocations
+([dotnet/aspnetcore #64098](https://github.com/dotnet/aspnetcore/pull/64098)).
+
+Previously, only streaming hub methods supported a `CancellationToken`. Now
+you can pass a token to any hub invocation and the cancellation is propagated
+to the server when the token fires:
+
+```csharp
+// Client side
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+var result = await hubConnection.InvokeAsync<string>(
+    "SlowOperation", args, cts.Token);
+
+// Server side — token is cancelled if the client cancels
+public async Task<string> SlowOperation(string args, CancellationToken ct)
+{
+    await Task.Delay(5000, ct);
+    return "Done";
+}
+```
+
+This lets clients abort expensive server-side operations when they navigate
+away or time out, reducing unnecessary work on the server.
+
+## Deferred antiforgery rejection via IAntiforgeryValidationFeature
+
+The antiforgery middleware now defers CSRF rejection to the form consumer
+rather than short-circuiting the pipeline on the first invalid token
+([dotnet/aspnetcore #67082](https://github.com/dotnet/aspnetcore/pull/67082)).
+
+Previously, `app.UseAntiforgery()` rejected a request immediately if the
+CSRF token was missing or invalid, before any endpoint ran. This made it
+impossible to handle the failure gracefully in a minimal API or controller
+that might want to return a custom problem-details response or fall back to a
+different auth path.
+
+The new behavior stores the validation result in `IAntiforgeryValidationFeature`
+on the `HttpContext` and defers the rejection decision to the handler. The
+endpoint can inspect `feature.IsValid` and decide how to respond. The existing
+opt-in `[ValidateAntiForgeryToken]` and `RequireAntiforgeryToken()` behaviour
+is unchanged; this change only affects the default middleware short-circuit.
+
+> **Note:** This is a breaking change if you relied on the middleware rejecting
+> before the endpoint executed. Update any code that expected a 400 response
+> before the endpoint body ran.
+
+## Routing: short-circuit attribute
+
+Endpoints can now opt out of the full middleware pipeline by applying
+`[ShortCircuit]` (or calling `.ShortCircuit()` on a route group/endpoint)
+([dotnet/aspnetcore #67249](https://github.com/dotnet/aspnetcore/pull/67249)).
+
+Short-circuited endpoints skip all middleware registered after `UseRouting`,
+including authentication, authorization, CORS, antiforgery, and output
+caching. This is useful for health-check endpoints, metrics scrape targets,
+and other internal probes that must respond quickly and do not need the full
+request processing stack:
+
+```csharp
+app.MapGet("/healthz", () => Results.Ok())
+   .ShortCircuit();
+
+// Or using the attribute:
+[ShortCircuit]
+[ApiController]
+public class HealthController : ControllerBase
+{
+    [HttpGet("/healthz")]
+    public IActionResult Check() => Ok();
+}
+```
+
+## Virtualize component: CSP compliance
+
+The `Virtualize<TItem>` component no longer uses inline styles, making it
+compatible with strict Content Security Policy (CSP) configurations that
+disallow `style-src 'unsafe-inline'`
+([dotnet/aspnetcore #66680](https://github.com/dotnet/aspnetcore/pull/66680)).
+
+Previously, `Virtualize` injected an inline `style` attribute on the
+spacer elements it uses to simulate scroll height. This blocked CSP deployments
+that set a strict `style-src` policy. The component now uses CSS classes
+instead, so no CSP exception is needed.
+
 ## Bug fixes
 
-- Fixed `JsonSerializerOptions` not being correctly propagated to all code
-  paths during OpenAPI schema generation, causing inconsistent serialization
-  behavior
-  ([dotnet/aspnetcore #66847](https://github.com/dotnet/aspnetcore/pull/66847)).
-- Fixed `DescriptionAttribute` not being respected for nullable value types
-  during OpenAPI schema generation
-  ([dotnet/aspnetcore #65245](https://github.com/dotnet/aspnetcore/pull/65245)).
-  Thanks [@ChrisMcKee](https://github.com/ChrisMcKee) for the contribution.
-- Fixed `JsonException` not bubbling correctly through Problem Details middleware
-  in Minimal APIs — exceptions thrown during JSON deserialization now produce
-  a structured problem details response
-  ([dotnet/aspnetcore #66519](https://github.com/dotnet/aspnetcore/pull/66519)).
-- Fixed `NullableConverter` missing types in its supported-type allow list,
-  causing binding failures for some nullable value types
-  ([dotnet/aspnetcore #66625](https://github.com/dotnet/aspnetcore/pull/66625)).
-  Thanks [@xtqqczze](https://github.com/xtqqczze) for the contribution.
-- Suppressed `ASP0027` for attributed public partial `Program` declarations to
-  reduce spurious warnings in file-based app templates
-  ([dotnet/aspnetcore #66875](https://github.com/dotnet/aspnetcore/pull/66875)).
-- Fixed Identity email wording for notifications sent to recipients who did not
-  initiate the action (password reset, email change confirmations)
-  ([dotnet/aspnetcore #66747](https://github.com/dotnet/aspnetcore/pull/66747)).
-  Thanks [@guilherme-gonzalez](https://github.com/guilherme-gonzalez) for the contribution.
-- Added documentation for antiforgery HTTP method limitations and its interaction
-  with `HttpMethodOverride`
-  ([dotnet/aspnetcore #66772](https://github.com/dotnet/aspnetcore/pull/66772)).
-  Thanks [@zzfima](https://github.com/zzfima) for the contribution.
-- Fixed cache key separator missing between multiple `Vary` header values in
-  `ResponseCaching` and `OutputCaching`
-  ([dotnet/aspnetcore #66936](https://github.com/dotnet/aspnetcore/pull/66936)).
+- Fixed duplicate XML documentation IDs being generated for generic properties
+  and references in OpenAPI schema output
+  ([dotnet/aspnetcore #64404](https://github.com/dotnet/aspnetcore/pull/64404)).
+- Fixed `If-Match` and `If-None-Match` header parsing having O(n²) complexity
+  for large numbers of ETags; now O(n)
+  ([dotnet/aspnetcore #66796](https://github.com/dotnet/aspnetcore/pull/66796)).
+- Fixed trailing-comma handling in chunked transfer encoding
+  ([dotnet/aspnetcore #67006](https://github.com/dotnet/aspnetcore/pull/67006)).
+- Fixed `TempData` and `[SupplyParameterFromSession]` not being persisted
+  correctly during streaming SSR
+  ([dotnet/aspnetcore #66832](https://github.com/dotnet/aspnetcore/pull/66832)).
+- Fixed cookie authentication return URLs being accepted with ASCII control
+  characters, which could be exploited for open-redirect attacks
+  ([dotnet/aspnetcore #66876](https://github.com/dotnet/aspnetcore/pull/66876)).
+- Fixed `RouteHandlerAnalyzer` crashing when a generic type parameter is used
+  as a handler parameter type
+  ([dotnet/aspnetcore #63641](https://github.com/dotnet/aspnetcore/pull/63641)).
+- Fixed `HttpSysException` not including `HttpInitialize` status details for
+  kernel-mode HTTP.sys initialization errors
+  ([dotnet/aspnetcore #66859](https://github.com/dotnet/aspnetcore/pull/66859)).
+- Fixed OpenAPI registration not resolving document names on request when
+  multiple documents are registered
+  ([dotnet/aspnetcore #66692](https://github.com/dotnet/aspnetcore/pull/66692)).
+- Added CRLF/LF observability improvements for HTTP/1.x requests; malformed
+  line terminators now produce a structured diagnostic instead of silent drops
+  ([dotnet/aspnetcore #66807](https://github.com/dotnet/aspnetcore/pull/66807)).
+- Fixed host filtering middleware not matching a leading dot when a wildcard
+  host entry is used (e.g., `.example.com`)
+  ([dotnet/aspnetcore #67265](https://github.com/dotnet/aspnetcore/pull/67265)).
 
 ## Community contributors
 
