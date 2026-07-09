@@ -254,6 +254,22 @@ surprising compilation errors or incorrect runtime behavior
 - Fixed false-positive `FS1113` errors on inline instance members that use
   a class-scope self identifier
   ([dotnet/fsharp #19761](https://github.com/dotnet/fsharp/pull/19761)).
+- Parallel and sequential compilation now produce byte-identical output.
+  `--parallelcompilation+` previously could generate assemblies with different
+  member and field emit order than `--parallelcompilation-`, breaking
+  deterministic builds and the `FSharp.Compiler.Service.dll` determinism gate.
+  Both modes now derive all emit-order keys from the file being emitted rather
+  than thread-scheduling order
+  ([dotnet/fsharp #19929](https://github.com/dotnet/fsharp/pull/19929)).
+- Fixed the Release-mode optimizer silently dropping side-effectful receivers
+  in `task {}` computation expressions. Expressions of the form
+  `task { (sideEffect ()).UnitMember }` now correctly execute the receiver —
+  previously `sideEffect()` was elided in Release builds
+  ([dotnet/fsharp #19885](https://github.com/dotnet/fsharp/pull/19885)).
+- Fixed a stack overflow on ppc64le when compiling files with long statement
+  sequences. Deep right-nested `Sequential` chains in graph checking now walk
+  iteratively, matching the existing handling for `IfThenElse`
+  ([dotnet/fsharp #20028](https://github.com/dotnet/fsharp/pull/20028)).
 
 ## Community contributors
 
