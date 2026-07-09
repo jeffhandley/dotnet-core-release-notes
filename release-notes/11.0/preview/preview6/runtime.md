@@ -13,6 +13,7 @@
 - [Async continuations without ExecutionContext](#async-continuations-without-executioncontext)
 - [NativeAOT: faster interface dispatch](#nativeaot-faster-interface-dispatch)
 - [SIMD: Lane construction and composition APIs](#simd-lane-construction-and-composition-apis)
+- [Diagnostics: cDAC loading from SOS installations](#diagnostics-cdac-loading-from-sos-installations)
 - [Bug fixes](#bug-fixes)
 - [Community contributors](#community-contributors)
 
@@ -241,6 +242,21 @@ SIMD-intensive workloads that need fine-grained control over vector element
 layout.
 
 Thanks [@SebastianSie](https://github.com/SebastianSie) for the contribution.
+
+## Diagnostics: cDAC loading from SOS installations
+
+The .NET diagnostics infrastructure now supports loading the Compact Data
+Access Component (cDAC) from existing SOS (Son of Strike) debugger
+installations
+([dotnet/diagnostics #5874](https://github.com/dotnet/diagnostics/pull/5874)).
+
+The cDAC provides a compact, versioned description of CLR data structures that
+diagnostic tools use to inspect running processes and crash dumps without
+depending on hard-coded offsets. Previously, cDAC loading required the component
+to be co-located with the runtime. The new support allows cDAC to be discovered
+and loaded from an installed SOS extension, enabling newer cDAC capabilities
+in environments where SOS is deployed separately — such as within Visual Studio,
+dotnet-sos, or crash-dump analysis workflows.
 
 ## Bug fixes
 
