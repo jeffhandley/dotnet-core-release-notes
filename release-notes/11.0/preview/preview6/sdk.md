@@ -184,6 +184,10 @@ for vulnerability data feeds.
   ([dotnet/sdk #53658](https://github.com/dotnet/sdk/pull/53658)).
 - Fixed `dotnet watch` hanging on a device prompt for MAUI workload projects
   ([dotnet/sdk #54392](https://github.com/dotnet/sdk/pull/54392)).
+- Fixed the `dnx` dispatcher failing to resolve the install directory when the
+  .NET install path is a symlink; the dispatcher now follows symlinks to locate
+  the real install directory
+  ([dotnet/sdk #55223](https://github.com/dotnet/sdk/pull/55223)).
 
 ## Community contributors
 
