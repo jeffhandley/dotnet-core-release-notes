@@ -21,13 +21,13 @@ Tone, attribution, and content guidelines for .NET release notes.
   - ✅ `Runtime-async is now enabled for NativeAOT. This eliminates the state-machine overhead of async/await for ahead-of-time compiled applications.`
   - ❌ `The runtime-async feature, which eliminates the state-machine overhead of async/await, is now enabled for NativeAOT.`
   - ✅ `The JIT now generates ARM64 SM4 and SHA3 instructions directly, enabling hardware-accelerated implementations on capable processors.` (long but flows — one thought)
-- **Frame conditions by their real prevalence** — don't hedge default or mainline behavior behind a conditional that makes it sound rare or optional. A leading "When X is configured / compiled with Y…" clause signals to readers that the change probably doesn't apply to them, so use it only when X is genuinely uncommon. When a configuration is the default — or is *becoming* the mainline assumption — state the change as the norm and mention the exception second, or not at all. Verify what is actually default before hedging; don't reflexively wrap a change in a condition.
-  - ❌ `When the runtime is compiled with ARM SVE support, Vector<T> values are now passed by reference rather than by value.` (SVE-enabled builds are becoming the mainline ARM64 configuration, not an edge case — this framing tells most readers to skip the section)
-  - ✅ `On ARM64, Vector<T> values are now passed by reference rather than by value. This matches SVE (Scalable Vector Extension) hardware, where vector width is determined at runtime — the configuration .NET's ARM64 builds now assume.`
+- **Frame conditions by their real prevalence** — don't hedge default or mainline behavior behind a conditional that makes it sound rare or optional. A leading "When X is configured / compiled with Y…" clause signals to readers that the change probably doesn't apply to them, so use it only when X is genuinely uncommon. When a configuration is the default — or is *becoming* the mainline assumption — state the change as the norm and mention the exception second, or not at all. Verify what is actually default before hedging; don't reflexively wrap a change in a condition or erase one that matters.
+  - ❌ `On ARM64, Vector<T> values are now passed by reference rather than by value.` (overgeneralizes a change that applies only when the SVE-backed `Vector<T>` instruction set is available)
+  - ✅ `When Vector<T> uses the SVE-backed instruction set on ARM64, values are now passed by reference rather than by value. This avoids treating runtime-width SVE vectors as fixed-width 128-bit values.`
 - **State the scope — general vs. targeted — and tie it to what the reader builds** — say whether a feature applies broadly or only to specific platforms, app models, or scenarios, and name them. Don't describe a targeted change in general terms: a reader on the wrong platform thinks it applies to them, and a reader on the right platform never realizes it's for them. Ground abstract mechanisms ("the process", "the host") in the reader's apps. Check PR labels (e.g. `os-android`, `os-ios`) and body for the real scope. (This is the mirror of *Frame conditions by their real prevalence*: there, don't make a mainline change sound rare; here, don't make a targeted change sound general.)
   - ❌ `A new in-process crash reporting mechanism captures diagnostic information from within the crashing process before it terminates.` (reads as a general runtime capability; never says it's for mobile apps)
   - ✅ `.NET mobile apps now produce a compact in-process crash report. On Android it's written to logcat under the DOTNET_CRASH tag; on iOS, tvOS, and Mac Catalyst it's emitted to the app log. The report includes per-thread managed stacks and a module table, captured from inside the crashing app before it exits.`
-  - ✅ Model done right: `Process.Start on Windows now supports launching a process in a suspended state. Set ProcessStartInfo.StartSuspended = true … then call Resume() … to attach, set job objects, or configure security attributes before the first user-mode instruction runs.` (states the platform — "on Windows" — up front, uses "process" in its proper OS sense, and the motivation is concrete and followable)
+  - ✅ Model done right: `On Windows, SafeProcessHandle.Start can launch a process with ProcessStartInfo.StartSuspended = true. Call Resume() on the returned handle after attaching, setting job objects, or configuring security attributes.` (states the platform — "on Windows" — up front, uses the approved API shape, and makes the motivation concrete)
 - **Don't reuse an overloaded platform term in a new sense** — words like `native`, `managed`, `runtime`, and `dynamic` already carry strong, specific meanings in .NET (`native` ⇒ NativeAOT / native interop; `managed` ⇒ managed vs unmanaged code). Borrowing one for a different meaning confuses readers, especially when the note uses it several times. Use the **established feature name** instead (see *Use the established feature name* under Entry naming). A change to how the runtime executes async methods is **runtime-async**, not "native async" — "native" collides with NativeAOT.
   - ❌ `## JIT compiles async methods natively` … "generates native async implementations" … "native async continuation path" (three uses; "native" reads as NativeAOT)
   - ✅ `## Runtime-async compiles dedicated async versions of task-returning methods`
@@ -39,9 +39,9 @@ Empty filler and marketing phrases that carry no information. Delete them. If re
 The lists below are **examples, not an exhaustive banlist**. The rule is the principle — *no empty filler or marketing wording* — so flag any semantically equivalent phrase even if it isn't spelled out here (e.g. "lightning fast", "first-class experience", "supercharged", "rock-solid", "next-generation").
 
 - **"out of the box" / "out-of-the-box"** — every shipped capability is available by default, so the phrase adds nothing. If the point is that no configuration is required, say that concretely; otherwise just state what the feature does.
-  - ✅ `System.Text.Json serializes C# 14 union types.`
-  - ✅ `System.Text.Json serializes C# 14 union types with no extra configuration.`
-  - ❌ `System.Text.Json now supports C# 14 union types out of the box.`
+  - ✅ `System.Text.Json serializes C# 15 union types.`
+  - ✅ `System.Text.Json serializes C# 15 union types with no extra configuration.`
+  - ❌ `System.Text.Json now supports C# 15 union types out of the box.`
 - **Empty intensifiers and marketing adjectives** — `seamless`/`seamlessly`, `effortless`/`effortlessly`, `simply`, `just` (as in "just works"), `powerful`, `robust`, `blazing fast`, `world-class`, `game-changer`, and equivalents. State the concrete behavior or measured result instead.
   - ✅ `Span-based parsing avoids the intermediate string allocation.`
   - ❌ `The new API makes parsing effortless.`
@@ -80,8 +80,8 @@ reader can't tell why the feature exists or whether it applies to them.
 `VariableNameTransformation` delegate that controls how environment variable
 names are mapped to configuration keys ([dotnet/runtime #127503](...)).
 
-By default, the provider converts `__` to `:` and uppercases keys. The new
-delegate lets you override that logic:
+By default, the provider converts `__` to `:`. The new delegate lets you
+override that logic:
 
 ```csharp
 builder.Configuration.AddEnvironmentVariables(options =>
@@ -116,33 +116,30 @@ platform, or target framework). This is the legitimate exception to the
 in [`quality-bar.md`](quality-bar.md) — a transparent platform win still belongs
 in the notes when the prose makes its value concrete.
 
-✅ Good — an automatic security feature with no API; the body explains the mechanism, the benefit, that it's automatic, and its hardware scope:
+✅ Good — an automatic performance improvement with no new API; the body
+explains the mechanism, the measured benefit, and its hardware scope:
 
 ```markdown
-The JIT now emits Pointer Authentication Code (PAC) instructions for
-return-address signing on ARM64 hardware that supports `FEAT_PAuth` or
-`FEAT_PAuth2` ([dotnet/runtime #127838](...)).
-
-PAC-RET adds hardware-enforced return-address integrity: the CPU signs the
-return address when a function is entered and verifies it before returning. If
-an attacker overwrites the return address, the check fails and the process
-terminates cleanly rather than executing attacker-controlled code.
-
-The feature is enabled automatically when the runtime detects PAC support at
-startup. No application changes are required. PAC-RET is active on Apple
-Silicon, recent Qualcomm Snapdragon, and AWS Graviton3 / Graviton4 systems.
+The JIT now uses a shorter widening-and-multiply sequence for 8-bit vector
+multiplication on x64 ([dotnet/runtime #126348](...)). The PR's benchmark
+improved by approximately 2x. Existing code that multiplies byte vectors
+benefits without source changes.
 ```
+
+Do not use an opt-in feature as this example. For instance, PAC-RET in Preview 6
+is disabled by default and requires `DOTNET_JitPacEnabled=1`; describing it as
+automatic would be a factual error.
 
 **Calibration — the floor for a transparent perf/behavior win.** A lean section
 still passes when it names the **mechanism** and **who benefits**, even without
 a code sample or much background. Adding either would strengthen it, but neither
 is required.
 
-- ✅ Passing (lean): *Async continuations without ExecutionContext* — explains
-  the mechanism (the runtime skips `ExecutionContext` capture/restore when a
-  continuation has nothing to restore) and names the beneficiaries (apps using
-  `ConfigureAwait(false)` with sparse `AsyncLocal<T>` in high-throughput async
-  paths). No code sample, but the WHY and the audience are concrete.
+- ✅ Passing (lean): *Runtime-async ValueTask continuations avoid
+  ExecutionContext work* — explains the mechanism (`ValueTaskContinuation`
+  doesn't save or restore `ExecutionContext`) and names the affected path
+  without claiming that all `Task` and `ValueTask` continuations changed. No
+  code sample, but the scope and benefit are concrete.
 
 ### Don't assume the reader knows the API or feature
 
@@ -306,9 +303,9 @@ writing, because "you can now…" wrongly implies the old approach still works.
   - ❌ `## Unsafe code adds clearer diagnostics and annotations`
 - Keep headings concise — 3–8 words
 - **Backtick all code identifiers in headings and link text** — type names (`Virtualize<TItem>`), method names (`Random.NextInteger<T>`), directives (`#:ref`, `#:package`), namespaces (`System.Net.Http.Json`), and constants. Unticked code-like text in headings breaks the GitHub-compatible heading-slug algorithm that markdownlint MD051 enforces — e.g. `## File-based apps: #:ref directive` is rejected because the inline parser drops `#:ref`; `## File-based apps: \`#:ref\` directive` is accepted and slugs cleanly. The publish-step TOC regenerator can fix wrong anchors but cannot fix wrong headings.
-  - ✅ `## \`#:ref\` directive for file-based app dependencies`
-  - ✅ `## \`Virtualize<TItem>\` supports variable-height items in AnchorMode`
-  - ✅ `## \`System.Net.Http.Json\` added to implicit usings`
+  - ✅ `` ## `#:ref` directive for file-based app dependencies ``
+  - ✅ `` ## `Virtualize<TItem>` supports variable-height items in AnchorMode ``
+  - ✅ `` ## `System.Net.Http.Json` added to implicit usings ``
   - ❌ `## File-based apps: #:ref directive for NuGet packages`
   - ❌ `## Virtualize<TItem> supports variable-height items in AnchorMode`
 - **Always specify a language on fenced code blocks** — markdownlint MD040 blocks publish on any unlabeled ` ``` ` fence. Use the actual language for runnable snippets (`csharp`, `bash`, `json`, `xml`, `powershell`, `console`, `diff`), and use `text` for plain output, file trees, or pseudo-code where no language fits. This includes README.md tables of contents, runtime.md JIT codegen snippets, and every other fenced block — there is no exception.
@@ -345,7 +342,7 @@ writing, because "you can now…" wrongly implies the old approach still works.
 
     Example (prose-with-snippets):
 
-    ```markdown
+    ````markdown
     ## JIT improvements
 
     Several JIT optimizations landed this preview that benefit normal C# without any source changes.
@@ -357,7 +354,7 @@ writing, because "you can now…" wrongly implies the old approach still works.
     int tail = values[^1] + values[^2];
     double d = someUint;
     ```
-    ```
+    ````
 
     Use `###` sub-headings (as in past `## JIT optimizations` sections) when individual items merit a paragraph of explanation plus a code sample — for example, an inlining improvement with a before/after pattern, or a bounds-check elimination that needs a few lines of C# to make the pattern recognizable.
 
