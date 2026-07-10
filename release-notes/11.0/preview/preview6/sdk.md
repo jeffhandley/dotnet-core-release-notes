@@ -147,6 +147,11 @@ migrates to `System.CommandLine`
 The migration brings improved help output, consistent tab completion behavior,
 and alignment with the rest of the .NET CLI tool ecosystem.
 
+`System.CommandLine` is now marked as trim-compatible
+([dotnet/command-line-api #2821](https://github.com/dotnet/command-line-api/pull/2821)),
+which enables CLI tools built with it to publish as self-contained NativeAOT or
+trimmed applications without warnings.
+
 ## Bug fixes
 
 - Fixed the CLI parser crashing when `global.json` is present but unreadable
