@@ -9,6 +9,7 @@
 - [Test templates improvements](#test-templates-improvements)
 - [dotnet watch improvements](#dotnet-watch-improvements)
 - [GenAPI improvements](#genapi-improvements)
+- [NuGet improvements](#nuget-improvements)
 - [Bug fixes](#bug-fixes)
 - [Community contributors](#community-contributors)
 
@@ -129,6 +130,22 @@ assembly API surfaces.
   ([dotnet/sdk #54492](https://github.com/dotnet/sdk/pull/54492)).
 - **Member spacing is normalized** for consistent output formatting
   ([dotnet/sdk #54458](https://github.com/dotnet/sdk/pull/54458)).
+
+## NuGet improvements
+
+**NuGet plugin protocol uses `System.Text.Json`.** The NuGet extensibility
+protocol that credential providers and other NuGet plugins use now serializes
+messages with `System.Text.Json` instead of `Newtonsoft.Json`
+([nuget/nuget.client #7326](https://github.com/nuget/nuget.client/pull/7326)).
+Plugin authors who implement `IPlugin` or custom credential providers no longer
+need a `Newtonsoft.Json` dependency for protocol message handling.
+
+**NuGet XPlat migrates to `System.CommandLine`.** The NuGet cross-platform CLI
+tooling (`dotnet nuget` subcommands and the standalone `nuget.exe` surface)
+migrates to `System.CommandLine`
+([nuget/nuget.client #7260](https://github.com/nuget/nuget.client/pull/7260)).
+The migration brings improved help output, consistent tab completion behavior,
+and alignment with the rest of the .NET CLI tool ecosystem.
 
 ## Bug fixes
 
