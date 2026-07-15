@@ -12,6 +12,8 @@
 - [`Math.BigMul` performance on x64](#mathbigmul-performance-on-x64)
 - [Linker dead-code elimination enabled globally on Unix](#linker-dead-code-elimination-enabled-globally-on-unix)
 - [WebAssembly write barriers](#webassembly-write-barriers)
+- [X25519 (Curve25519) support on Android](#x25519-curve25519-support-on-android)
+- [`MaxDepth` on `CborReader` and `CborWriter`](#maxdepth-on-cborreader-and-cborwriter)
 - [Bug fixes](#bug-fixes)
 - [Community contributors](#community-contributors)
 
@@ -69,6 +71,14 @@ Link-time dead-code elimination (`--gc-sections`) is now enabled globally for na
 
 The WebAssembly GC target now emits write barriers during object field stores, enabling the incremental/generational GC to correctly track inter-generational references in browser and WASI runtimes. This is an infrastructure prerequisite for more advanced GC modes on Wasm ([dotnet/runtime #128225](https://github.com/dotnet/runtime/pull/128225)).
 
+## X25519 (Curve25519) support on Android
+
+`System.Security.Cryptography.X25519` is now supported on Android, enabling Curve25519-based key exchange on Android devices. X25519 is widely used in TLS 1.3, SSH, and other modern protocols. Mobile apps using `ECDiffieHellman` with the `X25519` curve no longer need to fall back to managed implementations on Android ([dotnet/runtime #129129](https://github.com/dotnet/runtime/pull/129129)).
+
+## `MaxDepth` on `CborReader` and `CborWriter`
+
+`CborReader` and `CborWriter` each gain a `MaxDepth` property that limits how deeply nested CBOR structures the reader will traverse or the writer will accept. Setting this bound protects against deeply-nested payloads that could cause excessive stack usage ([dotnet/runtime #129273](https://github.com/dotnet/runtime/pull/129273)).
+
 ## Bug fixes
 
 - Resumption stubs for runtime-async are now laid out adjacent to their async method variants, improving code locality ([dotnet/runtime #128380](https://github.com/dotnet/runtime/pull/128380)).
@@ -80,6 +90,7 @@ The WebAssembly GC target now emits write barriers during object field stores, e
 - Fixed Windows tar path handling for absolute paths ([dotnet/runtime #128367](https://github.com/dotnet/runtime/pull/128367)).
 - Fixed `MarshalAs.IidParameterIndex` for `out object` in source-generated COM stubs ([dotnet/runtime #128214](https://github.com/dotnet/runtime/pull/128214)).
 - Fixed `NegotiateStream` stale read buffer on mid-frame read failure ([dotnet/runtime #128067](https://github.com/dotnet/runtime/pull/128067)).
+- Fixed `X509Chain` time validity when the process runs in a non-UTC time zone on OpenSSL platforms ([dotnet/runtime #129394](https://github.com/dotnet/runtime/pull/129394)).
 
 ## Community contributors
 
