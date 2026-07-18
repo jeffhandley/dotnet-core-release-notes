@@ -7,6 +7,8 @@
 - [System.Text.Json union support](#systemtextjson-union-support)
 - [Configurable environment variable name transformation](#configurable-environment-variable-name-transformation)
 - [Corrected keyed-service probing for built-in DI services](#corrected-keyed-service-probing-for-built-in-di-services)
+- [X25519 (Curve25519) support on Android](#x25519-curve25519-support-on-android)
+- [`MaxDepth` on `CborReader` and `CborWriter`](#maxdepth-on-cborreader-and-cborwriter)
 - [Performance improvements](#performance-improvements)
 - [Bug fixes](#bug-fixes)
 - [Community contributors](#community-contributors)
@@ -31,6 +33,14 @@ This is the runtime-layer piece; ASP.NET Core, Minimal APIs, SignalR, and Blazor
 
 `IServiceProvider.GetRequiredKeyedService<T>(key)` now correctly returns built-in service registrations when the key matches. A probing-order bug caused the lookup to bypass built-in entries, resulting in unexpected `InvalidOperationException` errors when callers expected to retrieve a framework-registered service by key. The fix restores the expected precedence ([dotnet/runtime #128198](https://github.com/dotnet/runtime/pull/128198)).
 
+## X25519 (Curve25519) support on Android
+
+`System.Security.Cryptography.X25519` is now supported on Android, enabling Curve25519-based key exchange on Android devices. X25519 is widely used in TLS 1.3, SSH, and other modern protocols. Mobile apps using `ECDiffieHellman` with the `X25519` curve no longer need to fall back to managed implementations on Android ([dotnet/runtime #129129](https://github.com/dotnet/runtime/pull/129129)).
+
+## `MaxDepth` on `CborReader` and `CborWriter`
+
+`CborReader` and `CborWriter` each gain a `MaxDepth` property that limits how deeply nested CBOR structures the reader will traverse or the writer will accept. Setting this bound protects against deeply-nested payloads that could cause excessive stack usage ([dotnet/runtime #129273](https://github.com/dotnet/runtime/pull/129273)).
+
 ## Performance improvements
 
 - **`Math.BigMul` on x64** — the `Math.BigMul(long, long, out long)` overload now compiles to a single `MUL`/`IMUL` instruction on x64, replacing multiple 32-bit multiplies ([dotnet/runtime #117261](https://github.com/dotnet/runtime/pull/117261)). Thanks [@Daniel-Svensson](https://github.com/Daniel-Svensson).
@@ -46,6 +56,7 @@ This is the runtime-layer piece; ASP.NET Core, Minimal APIs, SignalR, and Blazor
 - NativeAOT now correctly accepts full-width `0x`/`0X`-prefixed 64-bit hex values in environment configuration ([dotnet/runtime #128462](https://github.com/dotnet/runtime/pull/128462)).
 - Fixed `Socket.Blocking` not reflecting the correct state when constructing a `Socket` from a `SafeSocketHandle` ([dotnet/runtime #128433](https://github.com/dotnet/runtime/pull/128433)).
 - Fixed an infinite spin-wait in `Socket` release when the socket is closed after the handle was invalidated ([dotnet/runtime #128434](https://github.com/dotnet/runtime/pull/128434)).
+- Fixed `X509Chain` time validity when the process runs in a non-UTC time zone on OpenSSL platforms ([dotnet/runtime #129394](https://github.com/dotnet/runtime/pull/129394)).
 
 ## Community contributors
 
