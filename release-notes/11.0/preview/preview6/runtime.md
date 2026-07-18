@@ -4,16 +4,10 @@
 
 <!-- toc -->
 
-- [System.Text.Json union support](#systemtextjson-union-support)
-- [Configurable environment variable name transformation](#configurable-environment-variable-name-transformation)
-- [Corrected keyed-service probing for built-in DI services](#corrected-keyed-service-probing-for-built-in-di-services)
 - [JIT improvements](#jit-improvements)
 - [`Vector<T>` passed by reference when `VectorT` ISA is available](#vectort-passed-by-reference-when-vectort-isa-is-available)
-- [`Math.BigMul` performance on x64](#mathbigmul-performance-on-x64)
 - [Linker dead-code elimination enabled globally on Unix](#linker-dead-code-elimination-enabled-globally-on-unix)
 - [WebAssembly write barriers](#webassembly-write-barriers)
-- [X25519 (Curve25519) support on Android](#x25519-curve25519-support-on-android)
-- [`MaxDepth` on `CborReader` and `CborWriter`](#maxdepth-on-cborreader-and-cborwriter)
 - [Bug fixes](#bug-fixes)
 - [Community contributors](#community-contributors)
 
@@ -22,20 +16,6 @@
 .NET Runtime updates in .NET 11:
 
 - [What's new in .NET 11 runtime](https://learn.microsoft.com/dotnet/core/whats-new/dotnet-11/runtime)
-
-## System.Text.Json union support
-
-`System.Text.Json` now supports serializing and deserializing [C# union types](https://learn.microsoft.com/dotnet/csharp/language-reference/proposals/unions) (the new `union` feature shipping in C# 14). When a type annotated with `[JsonSerializable]` or registered via `AddJsonOptions` includes union properties, the generated serializer handles the active case automatically without requiring custom converters.
-
-This is a building-block change: it enables the rest of the ecosystem — ASP.NET Core, Minimal APIs, SignalR, Blazor — to pass union values across HTTP and WebSocket boundaries without user-authored glue code. See the [ASP.NET Core release notes](./aspnetcore.md) for the framework-level union support that builds on this foundation ([dotnet/runtime #128162](https://github.com/dotnet/runtime/pull/128162)).
-
-## Configurable environment variable name transformation
-
-A new `VariableNameTransformation` option on `EnvironmentVariablesConfigurationSource` lets you control how environment variable names are converted to configuration key paths. By default the provider maps `__` to `:` and normalizes case. With this option you can supply a custom delegate to handle naming conventions that differ from the .NET default — for example, if you're running in an environment that uses single-underscore separators or a fully custom scheme ([dotnet/runtime #127503](https://github.com/dotnet/runtime/pull/127503)).
-
-## Corrected keyed-service probing for built-in DI services
-
-When calling `serviceProvider.GetRequiredKeyedService<T>(key)` with a key that matches a built-in registration, the container now returns the built-in service instead of throwing. A subtle ordering issue in the probing path caused keyed look-ups to bypass the built-in entries; the fix restores the expected precedence and behavior ([dotnet/runtime #128198](https://github.com/dotnet/runtime/pull/128198)).
 
 ## JIT improvements
 
@@ -59,10 +39,6 @@ RyuJIT no longer requires the method prolog to live in a single instruction grou
 
 On platforms where the JIT has confirmed the `VectorT` instruction set is available at runtime, `Vector<T>` arguments can now be passed by reference in the calling convention, reducing copies and improving performance in SIMD-heavy code ([dotnet/runtime #125729](https://github.com/dotnet/runtime/pull/125729)).
 
-## `Math.BigMul` performance on x64
-
-`Math.BigMul(long, long, out long)` is now implemented with a single `MUL`/`IMUL` instruction on x64 instead of multiple 32-bit multiply steps, improving throughput for code doing wide-integer arithmetic ([dotnet/runtime #117261](https://github.com/dotnet/runtime/pull/117261)).
-
 ## Linker dead-code elimination enabled globally on Unix
 
 Link-time dead-code elimination (`--gc-sections`) is now enabled globally for native builds on Unix. Previously it was opt-in per project. This trims unreachable native code from binaries without any changes to managed source, reducing the size of single-file and NativeAOT outputs ([dotnet/runtime #128232](https://github.com/dotnet/runtime/pull/128232)).
@@ -71,29 +47,11 @@ Link-time dead-code elimination (`--gc-sections`) is now enabled globally for na
 
 The WebAssembly GC target now emits write barriers during object field stores, enabling the incremental/generational GC to correctly track inter-generational references in browser and WASI runtimes. This is an infrastructure prerequisite for more advanced GC modes on Wasm ([dotnet/runtime #128225](https://github.com/dotnet/runtime/pull/128225)).
 
-## X25519 (Curve25519) support on Android
-
-`System.Security.Cryptography.X25519` is now supported on Android, enabling Curve25519-based key exchange on Android devices. X25519 is widely used in TLS 1.3, SSH, and other modern protocols. Mobile apps using `ECDiffieHellman` with the `X25519` curve no longer need to fall back to managed implementations on Android ([dotnet/runtime #129129](https://github.com/dotnet/runtime/pull/129129)).
-
-## `MaxDepth` on `CborReader` and `CborWriter`
-
-`CborReader` and `CborWriter` each gain a `MaxDepth` property that limits how deeply nested CBOR structures the reader will traverse or the writer will accept. Setting this bound protects against deeply-nested payloads that could cause excessive stack usage ([dotnet/runtime #129273](https://github.com/dotnet/runtime/pull/129273)).
-
 ## Bug fixes
 
 - Resumption stubs for runtime-async are now laid out adjacent to their async method variants, improving code locality ([dotnet/runtime #128380](https://github.com/dotnet/runtime/pull/128380)).
-- `ToFrozenDictionary` pre-sizes the intermediate `Dictionary` to reduce rehashing during construction ([dotnet/runtime #128300](https://github.com/dotnet/runtime/pull/128300)).
-- NativeAOT now accepts full-width `0x`/`0X`-prefixed 64-bit hex values in environment configuration ([dotnet/runtime #128462](https://github.com/dotnet/runtime/pull/128462)).
-- `Socket.Blocking` is now initialized correctly from the underlying handle when constructing from `SafeSocketHandle` ([dotnet/runtime #128433](https://github.com/dotnet/runtime/pull/128433)).
-- Fixed a `PhysicalFilesWatcher` regression that created recursive `FileSystemWatcher` instances when watching a single file ([dotnet/runtime #128072](https://github.com/dotnet/runtime/pull/128072)).
-- Fixed TAR parsing to reject negative PAX size values ([dotnet/runtime #128368](https://github.com/dotnet/runtime/pull/128368)).
-- Fixed Windows tar path handling for absolute paths ([dotnet/runtime #128367](https://github.com/dotnet/runtime/pull/128367)).
-- Fixed `MarshalAs.IidParameterIndex` for `out object` in source-generated COM stubs ([dotnet/runtime #128214](https://github.com/dotnet/runtime/pull/128214)).
-- Fixed `NegotiateStream` stale read buffer on mid-frame read failure ([dotnet/runtime #128067](https://github.com/dotnet/runtime/pull/128067)).
 - Fixed `X509Chain` time validity when the process runs in a non-UTC time zone on OpenSSL platforms ([dotnet/runtime #129394](https://github.com/dotnet/runtime/pull/129394)).
 
 ## Community contributors
 
-Thank you to the community contributors who contributed to .NET Runtime in this preview:
-
-- [@Daniel-Svensson](https://github.com/Daniel-Svensson) — Math.BigMul x64 optimization ([dotnet/runtime #117261](https://github.com/dotnet/runtime/pull/117261))
+No external community contributors were identified for the .NET Runtime in this preview.
