@@ -50,7 +50,6 @@ The WebAssembly GC target now emits write barriers during object field stores, e
 ## Bug fixes
 
 - Resumption stubs for runtime-async are now laid out adjacent to their async method variants, improving code locality ([dotnet/runtime #128380](https://github.com/dotnet/runtime/pull/128380)).
-- Fixed `X509Chain` time validity when the process runs in a non-UTC time zone on OpenSSL platforms ([dotnet/runtime #129394](https://github.com/dotnet/runtime/pull/129394)).
 
 ## Community contributors
 
