@@ -2746,7 +2746,11 @@
       "commit": "dotnet@349b8d3",
       "is_security": false,
       "product": "dotnet-aspnetcore",
-      "local_repo_commit": "aspnetcore@becbe4b"
+      "local_repo_commit": "aspnetcore@becbe4b",
+      "labels": [
+        "area-minimal",
+        "feature-validation"
+      ]
     },
     {
       "id": "aspnetcore@0217526",
@@ -2797,7 +2801,10 @@
       "commit": "dotnet@349b8d3",
       "is_security": false,
       "product": "dotnet-aspnetcore",
-      "local_repo_commit": "aspnetcore@8deda82"
+      "local_repo_commit": "aspnetcore@8deda82",
+      "labels": [
+        "area-infrastructure"
+      ]
     },
     {
       "id": "aspnetcore@db6ba68",
@@ -3312,7 +3319,11 @@
       "commit": "dotnet@349b8d3",
       "is_security": false,
       "product": "dotnet-aspnetcore",
-      "local_repo_commit": "aspnetcore@579a905"
+      "local_repo_commit": "aspnetcore@579a905",
+      "labels": [
+        "area-minimal",
+        "feature-validation"
+      ]
     },
     {
       "id": "aspnetcore@914065b",
@@ -3412,7 +3423,11 @@
       "commit": "dotnet@10fdb92",
       "is_security": false,
       "product": "dotnet-aspnetcore",
-      "local_repo_commit": "aspnetcore@01c1e4f"
+      "local_repo_commit": "aspnetcore@01c1e4f",
+      "labels": [
+        "feature-openapi",
+        "area-minimal"
+      ]
     },
     {
       "id": "aspnetcore@cd6a156",
